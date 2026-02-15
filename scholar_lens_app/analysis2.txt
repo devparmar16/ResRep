@@ -1,0 +1,9 @@
+Analyzing lib...
+
+warning - screens\home\home_screen.dart:7:8 - Unused import: '../../repositories/paper_repository.dart'. Try removing the import directive. - unused_import
+   info - providers\auth_provider.dart:2:1 - 'dart:html' is deprecated and shouldn't be used. Use package:web and dart:js_interop instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - providers\auth_provider.dart:2:1 - Don't use web-only libraries outside Flutter web plugins. Try finding a different library for your needs. - avoid_web_libraries_in_flutter
+   info - providers\auth_provider.dart:62:15 - The 'if' statement could be replaced by a null-aware assignment. Try using the '??=' operator to conditionally assign a value. - prefer_conditional_assignment
+   info - providers\auth_provider.dart:107:11 - The 'if' statement could be replaced by a null-aware assignment. Try using the '??=' operator to conditionally assign a value. - prefer_conditional_assignment
+
+5 issues found.

@@ -1,0 +1,40 @@
+﻿dart : Could not find 
+an option named 
+"--no-preamble".
+At line:1 char:41
++ ... LE_ANSI_COLORS = 
+"false"; dart analyze 
+lib --no-preamble 2>&1 
+| Out-F ...
++                       
+        ~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : (Could not find .   
+ ..--no-preamble".:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
+
+Usage: dart analyze 
+[arguments] 
+[<directory>]
+-h, --help              
+     Print this usage 
+information.
+    --fatal-infos       
+     Treat info level 
+issues as fatal.
+    
+--[no-]fatal-warnings   
+ Treat warning level 
+issues as fatal.
+                        
+     (defaults to on)
+
+Run "dart help" to see 
+global options.

@@ -1,0 +1,11 @@
+﻿Analyzing lib...
+
+  error - screens\home\feed_screen.dart:362:41 - The method 'clamp' isn't defined for the type 'Duration'. Try correcting the name to the name of an existing method, or defining a method named 'clamp'. - undefined_method
+  error - screens\home\home_screen.dart:160:24 - The named parameter 'controller' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - screens\home\home_screen.dart:161:29 - The argument type 'void Function(dynamic)' can't be assigned to the parameter type 'VoidCallback'.  - argument_type_not_assignable
+  error - screens\home\home_screen.dart:190:26 - The named parameter 'counts' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - screens\home\home_screen.dart:191:21 - The named parameter 'domainCounts' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'domainCounts'. - undefined_named_parameter
+  error - widgets\gradient_button.dart:58:14 - The named parameter 'listenable' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - widgets\gradient_button.dart:59:9 - The named parameter 'animation' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'animation'. - undefined_named_parameter
+
+7 issues found.
