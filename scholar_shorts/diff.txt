@@ -1,0 +1,860 @@
+﻿diff --git a/scholar_shorts/lib/main.dart b/scholar_shorts/lib/main.dart
+index c51a4ee..89d813c 100644
+--- a/scholar_shorts/lib/main.dart
++++ b/scholar_shorts/lib/main.dart
+@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
+ import 'services/huggingface_embedding_service.dart';
+ import 'providers/feed_provider.dart';
+ import 'providers/search_provider.dart';
++import 'providers/journal_provider.dart';
+ import 'screens/auth/login_screen.dart';
+ import 'screens/auth/signup_screen.dart';
+ import 'screens/auth/profile_completion_screen.dart';
+@@ -37,8 +38,9 @@ class ScholarShortsApp extends StatelessWidget {
+     return MultiProvider(
+       providers: [
+         ChangeNotifierProvider(create: (_) => AuthProvider()),
+-        ChangeNotifierProvider(create: (_) => SearchProvider()), // Might be unused in Shorts? Or maybe for manual search
++        ChangeNotifierProvider(create: (_) => SearchProvider()),
+         ChangeNotifierProvider(create: (_) => FeedProvider()),
++        ChangeNotifierProvider(create: (_) => JournalProvider()),
+       ],
+       child: MaterialApp(
+         title: 'Scholar Shorts',
+diff --git a/scholar_shorts/lib/models/domain.dart b/scholar_shorts/lib/models/domain.dart
+index f2c534a..4c48d7d 100644
+--- a/scholar_shorts/lib/models/domain.dart
++++ b/scholar_shorts/lib/models/domain.dart
+@@ -8,6 +8,16 @@ enum PaperDomain {
+   webMobile,
+   dataScience,
+   softwareEng,
++  medical,
++  engineering,
++  physics,
++  chemistry,
++  biology,
++  social,
++  economics,
++  psychology,
++  art,
++  history,
+   other,
+ }
+ 
+@@ -145,6 +155,106 @@ class DomainInfo {
+         'static analysis', 'code smell', 'software development lifecycle',
+       ],
+     ),
++    DomainInfo(
++      domain: PaperDomain.medical,
++      id: 'medical',
++      label: 'Medical',
++      icon: 'ΓÜò∩╕Å',
++      description: 'Medical science, clinical research, pharmacology, and healthcare.',
++      color: Color(0xFFEF4444),
++      badgeBg: Color(0x33EF4444),
++      keywords: ['medicine', 'medical', 'clinical', 'health', 'pharmacology', 'disease', 'patient'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.engineering,
++      id: 'engineering',
++      label: 'Engineering',
++      icon: 'ΓÜÖ∩╕Å',
++      description: 'Mechanical, civil, electrical, and aerospace engineering fields.',
++      color: Color(0xFFF97316),
++      badgeBg: Color(0x33F97316),
++      keywords: ['engineering', 'mechanical', 'civil', 'electrical', 'aerospace', 'materials'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.physics,
++      id: 'physics',
++      label: 'Physics',
++      icon: '≡ƒîî',
++      description: 'Quantum physics, astrophysics, mechanics, and thermodynamics.',
++      color: Color(0xFF8B5CF6),
++      badgeBg: Color(0x338B5CF6),
++      keywords: ['physics', 'quantum', 'astrophysics', 'mechanics', 'thermodynamics', 'optics'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.chemistry,
++      id: 'chemistry',
++      label: 'Chemistry',
++      icon: '≡ƒº¬',
++      description: 'Organic chemistry, materials science, and biochemistry.',
++      color: Color(0xFF14B8A6),
++      badgeBg: Color(0x3314B8A6),
++      keywords: ['chemistry', 'organic', 'inorganic', 'biochemistry', 'materials science', 'catalysis'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.biology,
++      id: 'biology',
++      label: 'Biology',
++      icon: '≡ƒî┐',
++      description: 'Genetics, evolutionary biology, ecology, and microbiology.',
++      color: Color(0xFF22C55E),
++      badgeBg: Color(0x3322C55E),
++      keywords: ['biology', 'genetics', 'ecology', 'microbiology', 'evolution', 'zoology', 'botany'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.social,
++      id: 'social',
++      label: 'Social Sci',
++      icon: '≡ƒÅ¢∩╕Å',
++      description: 'Sociology, anthropology, political science, and social structures.',
++      color: Color(0xFF8B5CF6),
++      badgeBg: Color(0x338B5CF6),
++      keywords: ['social science', 'sociology', 'anthropology', 'political science', 'society'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.economics,
++      id: 'economics',
++      label: 'Economics',
++      icon: '≡ƒôê',
++      description: 'Macroeconomics, microeconomics, finance, and global markets.',
++      color: Color(0xFFEAB308),
++      badgeBg: Color(0x33EAB308),
++      keywords: ['economics', 'finance', 'macroeconomics', 'microeconomics', 'market', 'trade'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.psychology,
++      id: 'psychology',
++      label: 'Psychology',
++      icon: '≡ƒºá',
++      description: 'Cognitive science, behavioral psychology, and neuroscience.',
++      color: Color(0xFFEC4899),
++      badgeBg: Color(0x33EC4899),
++      keywords: ['psychology', 'cognitive', 'behavior', 'neuroscience', 'mental health'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.art,
++      id: 'art',
++      label: 'Art & Hum',
++      icon: '≡ƒÄ¿',
++      description: 'Fine arts, literature, philosophy, and cultural studies.',
++      color: Color(0xFFD946EF),
++      badgeBg: Color(0x33D946EF),
++      keywords: ['art', 'humanities', 'literature', 'philosophy', 'culture'],
++    ),
++    DomainInfo(
++      domain: PaperDomain.history,
++      id: 'history',
++      label: 'History',
++      icon: 'ΓÅ│',
++      description: 'Ancient history, modern history, and archaeology.',
++      color: Color(0xFF78716C),
++      badgeBg: Color(0x3378716C),
++      keywords: ['history', 'archaeology', 'ancient', 'modern', 'historical'],
++    ),
+     DomainInfo(
+       domain: PaperDomain.other,
+       id: 'other',
+diff --git a/scholar_shorts/lib/models/paper.dart b/scholar_shorts/lib/models/paper.dart
+index 424875f..aa266fa 100644
+--- a/scholar_shorts/lib/models/paper.dart
++++ b/scholar_shorts/lib/models/paper.dart
+@@ -46,6 +46,9 @@ class Paper {
+ 
+     final externalIds = json['externalIds'] as Map<String, dynamic>?;
+     final openAccessPdf = json['openAccessPdf'] as Map<String, dynamic>?;
++    final openAccessPdfUrl = (openAccessPdf != null && openAccessPdf.containsKey('url')) 
++        ? openAccessPdf['url'] as String? 
++        : null;
+     final tldrMap = json['tldr'] as Map<String, dynamic>?;
+ 
+     return Paper(
+@@ -56,10 +59,11 @@ class Paper {
+       year: json['year'] as int?,
+       citationCount: json['citationCount'] as int? ?? 0,
+       url: json['url'] as String?,
+-      openAccessPdfUrl: openAccessPdf?['url'] as String?,
++      openAccessPdfUrl: openAccessPdfUrl,
+       doi: externalIds?['DOI'] as String?,
+       authors: authorsList,
+       fieldsOfStudy: fields,
++      domain: DomainInfo.getById(json['domain'] as String? ?? 'other').domain,
+     );
+   }
+ 
+diff --git a/scholar_shorts/lib/providers/feed_provider.dart b/scholar_shorts/lib/providers/feed_provider.dart
+index 3316508..28147ac 100644
+--- a/scholar_shorts/lib/providers/feed_provider.dart
++++ b/scholar_shorts/lib/providers/feed_provider.dart
+@@ -1,9 +1,9 @@
+ import 'package:flutter/foundation.dart';
+-import '../models/domain.dart';
+ import '../repositories/feed_repository.dart';
+-import '../utils/constants.dart';
++import '../models/domain.dart';
+ 
+ /// Session-based personalized feed state management.
++/// Now backed by FastAPI + Redis snapshots.
+ class FeedProvider extends ChangeNotifier {
+   final FeedRepository _feedRepo;
+ 
+@@ -11,118 +11,95 @@ class FeedProvider extends ChangeNotifier {
+       : _feedRepo = feedRepo ?? FeedRepository();
+ 
+   // ΓöÇΓöÇΓöÇ State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-  final Map<int, List<RankedPaper>> _loadedPages = {};
+-  List<DomainInfo> _userDomains = [];
++  List<RankedPaper> _papers = [];
++  List<String> _domainIds = [];
++  String? _userId;
++  String? _activeFilterDomainId;
++  
+   bool _isLoadingInitial = false;
+   bool _isLoadingMore = false;
+   String? _error;
+-  int _totalPagesLoaded = 0;
+ 
+   // ΓöÇΓöÇΓöÇ Getters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+   bool get isLoadingInitial => _isLoadingInitial;
+   bool get isLoadingMore => _isLoadingMore;
+   String? get error => _error;
+-  int get totalPagesLoaded => _totalPagesLoaded;
+-  bool get hasContent => _loadedPages.isNotEmpty;
+-
+-  bool get hasMore => _totalPagesLoaded < 50; // reasonable upper limit
++  bool get hasContent => _papers.isNotEmpty;
++  bool get hasMore => false; // Feed is snapshot-based, no pagination
++  int get totalPagesLoaded => hasContent ? 1 : 0;
++  
++  String? get activeFilterDomainId => _activeFilterDomainId;
+ 
+-  /// Flatten all loaded pages into a single list.
++  /// All loaded papers (snapshot) filtered by the active domain.
+   List<RankedPaper> get feedPapers {
+-    final all = <RankedPaper>[];
+-    for (int i = 0; i < _totalPagesLoaded; i++) {
+-      if (_loadedPages.containsKey(i)) {
+-        all.addAll(_loadedPages[i]!);
+-      }
+-    }
+-    return all;
++    if (_activeFilterDomainId == null) return _papers;
++    return _papers.where((p) => p.paper.domain == DomainInfo.getById(_activeFilterDomainId!).domain).toList();
+   }
+ 
+   // ΓöÇΓöÇΓöÇ Actions ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+-  /// Set the user's domains and load the initial batch.
+-  Future<void> initialize(List<String> domainIds) async {
+-    if (_loadedPages.isNotEmpty) return; // already loaded
+-
+-    _userDomains = DomainInfo.getByIds(domainIds);
+-    if (_userDomains.isEmpty) return;
++  /// Set the user's domains and load the feed snapshot.
++  Future<void> initialize(List<String> domainIds, {String? userId}) async {
++    if (_papers.isNotEmpty) return; // already loaded
+ 
+-    await _loadBatch(isInitial: true);
+-  }
++    _domainIds = domainIds;
++    _userId = userId ?? 'default-user';
++    if (_domainIds.isEmpty) return;
+ 
+-  /// Load more: fetches the next batch of pages.
+-  Future<void> loadMore() async {
+-    if (_isLoadingMore || !hasMore) return;
+-    await _loadBatch(isInitial: false);
+-  }
+-
+-  Future<void> _loadBatch({required bool isInitial}) async {
+-    if (isInitial) {
+-      _isLoadingInitial = true;
+-    } else {
+-      _isLoadingMore = true;
+-    }
++    _isLoadingInitial = true;
+     _error = null;
+     notifyListeners();
+ 
+     try {
+-      final startPage = _totalPagesLoaded;
+-      final endPage = startPage + AppConstants.pagesPerBatch;
+-
+-      for (int page = startPage; page < endPage; page++) {
+-        final ranked = await _feedRepo.fetchRankedPage(
+-          domains: _userDomains,
+-          pageIndex: page,
+-        );
+-
+-        if (ranked.isEmpty) break; // no more results
+-
+-        _loadedPages[page] = ranked;
+-        _totalPagesLoaded = page + 1;
+-
+-        // Notify after each page for progressive UI updates
+-        notifyListeners();
+-
+-        // Small delay to respect API rate limits
+-        if (page < endPage - 1) {
+-          await Future.delayed(
+-            Duration(milliseconds: AppConstants.apiDelayMs),
+-          );
+-        }
+-      }
++      _papers = await _feedRepo.fetchFeed(
++        userId: _userId!,
++        domainIds: _domainIds,
++      );
+     } catch (e) {
+       _error = e.toString();
+     } finally {
+       _isLoadingInitial = false;
+-      _isLoadingMore = false;
+       notifyListeners();
+     }
+   }
+ 
++  /// Load more ΓÇö no-op for snapshot-based feeds.
++  Future<void> loadMore() async {
++    // Snapshot-based: all papers are loaded at once
++  }
+ 
+-  /// Reset feed and reload with new domains.
++  /// Pull-to-refresh: force-rebuild the feed via backend.
+   Future<void> refresh(List<String> domainIds) async {
+-    // 1. Clear current state
+-    _loadedPages.clear();
+-    _totalPagesLoaded = 0;
+-    _userDomains = [];
++    _isLoadingInitial = true;
+     _error = null;
++    _domainIds = domainIds;
+     notifyListeners();
+ 
+-    // 2. Clear repository caches
+-    _feedRepo.clearCaches();
++    try {
++      _papers = await _feedRepo.refreshFeed(
++        userId: _userId ?? 'default-user',
++        domainIds: _domainIds,
++      );
++    } catch (e) {
++      _error = e.toString();
++    } finally {
++      _isLoadingInitial = false;
++      notifyListeners();
++    }
++  }
+ 
+-    // 3. Re-initialize
+-    await initialize(domainIds);
++  void setActiveFilterDomain(String? domainId) {
++    _activeFilterDomainId = domainId;
++    notifyListeners();
+   }
+ 
+   /// Reset feed (on logout or domain change).
+   void reset() {
+-    _loadedPages.clear();
+-    _totalPagesLoaded = 0;
+-    _userDomains = [];
++    _papers = [];
++    _domainIds = [];
++    _userId = null;
++    _activeFilterDomainId = null;
+     _error = null;
+-    _feedRepo.clearCaches();
+     notifyListeners();
+   }
+ 
+diff --git a/scholar_shorts/lib/repositories/feed_repository.dart b/scholar_shorts/lib/repositories/feed_repository.dart
+index 7787583..3662fd0 100644
+--- a/scholar_shorts/lib/repositories/feed_repository.dart
++++ b/scholar_shorts/lib/repositories/feed_repository.dart
+@@ -1,124 +1,52 @@
+-import '../models/domain.dart';
+ import '../models/paper.dart';
+-import '../services/embedding_service.dart';
+-import '../services/paper_categorizer.dart';
+-import '../services/semantic_scholar_service.dart';
+-import '../utils/constants.dart';
++import '../services/backend_api_service.dart';
+ 
+-/// Orchestrates: API fetch ΓåÆ embed ΓåÆ rank ΓåÆ paginate.
++/// Orchestrates feed data through the FastAPI backend.
++/// The backend handles: OpenAlex fetch ΓåÆ Redis cache ΓåÆ ranking ΓåÆ snapshot.
+ class FeedRepository {
+-  final SemanticScholarService _apiService;
+-  final EmbeddingService _embeddingService;
++  final BackendApiService _apiService;
+ 
+-  FeedRepository({
+-    SemanticScholarService? apiService,
+-    EmbeddingService? embeddingService,
+-  })  : _apiService = apiService ?? SemanticScholarService(),
+-        _embeddingService = embeddingService ?? EmbeddingService();
++  FeedRepository({BackendApiService? apiService})
++      : _apiService = apiService ?? BackendApiService();
+ 
+-  bool _vocabInitialized = false;
++  /// Fetch the user's feed snapshot from the backend.
++  Future<List<RankedPaper>> fetchFeed({
++    required String userId,
++    required List<String> domainIds,
++  }) async {
++    final papers = await _apiService.fetchFeed(
++      userId: userId,
++      interests: domainIds,
++    );
+ 
+-  /// Initialize the vocabulary from domain descriptions.
+-  void _ensureVocab(List<DomainInfo> domains) {
+-    if (_vocabInitialized) return;
++    print('FeedRepository: received ${papers.length} papers from backend');
+ 
+-    final corpus = <String>[];
+-    for (final d in domains) {
+-      corpus.add('${d.label} ${d.description} ${d.keywords.join(" ")}');
+-    }
+-    _embeddingService.buildVocabulary(corpus);
+-    _vocabInitialized = true;
++    // Wrap in RankedPaper to stay compatible with existing UI
++    return papers.asMap().entries.map((entry) {
++      // Score = position-based (first = highest)
++      final score = 1.0 - (entry.key / (papers.length.clamp(1, 999)));
++      return RankedPaper(paper: entry.value, similarityScore: score);
++    }).toList();
+   }
+ 
+-  /// Fetch a page of papers, ranked by similarity to user's domains.
+-  ///
+-  /// [domains] ΓÇö user's selected domains (with descriptions for embedding).
+-  /// [pageIndex] ΓÇö 0-based page index.
+-  /// [perPage] ΓÇö papers per page (default 12).
+-  Future<List<RankedPaper>> fetchRankedPage({
+-    required List<DomainInfo> domains,
+-    required int pageIndex,
+-    int perPage = AppConstants.papersPerPage,
++  /// Force-refresh the feed via backend.
++  Future<List<RankedPaper>> refreshFeed({
++    required String userId,
++    required List<String> domainIds,
+   }) async {
+-    _ensureVocab(domains);
+-
+-    // 1. Compute domain embeddings (cached after first call)
+-    final domainVecs = <List<double>>[];
+-    for (final d in domains) {
+-      final vec = _embeddingService.getDomainEmbedding(
+-        d.id,
+-        '${d.label} ${d.description} ${d.keywords.join(" ")}',
+-      );
+-      domainVecs.add(vec);
+-    }
+-
+-    // 2. Build search query using domain labels with | operator
+-    // Take distinct labels to avoid redundancy
+-    // Limit to 4-5 domains to keep query length reasonable
+-    // Format: "Label 1" | "Label 2"
+-    final distinctLabels = domains.map((d) => d.label).toSet().toList();
+-    if (distinctLabels.isEmpty) return [];
+-
+-    final searchQuery = distinctLabels
+-        .take(5)
+-        .map((label) => '"$label"')
+-        .join(' | ');
+-
+-    // 3. Fetch papers from API
+-    // We fetch more than needed to rank and select the best
+-    final offset = pageIndex * perPage;
+-    
+-    // Debug Log
+-    print('FeedRepository: fetching page=$pageIndex (offset=$offset, limit=$perPage)');
+-    print('FeedRepository: query="$searchQuery"');
+-
+-    final data = await _apiService.fetchPapers(
+-      searchQuery,
+-      offset: offset,
+-      limit: perPage, // strict limit for speed
++    final papers = await _apiService.refreshFeed(
++      userId: userId,
++      interests: domainIds,
+     );
+ 
+-    final rawList = (data['data'] as List<dynamic>?) ?? [];
+-    print('FeedRepository: raw papers fetched: ${rawList.length}');
+-    
+-    final papers = rawList
+-        .map((item) => Paper.fromJson(item as Map<String, dynamic>))
+-        .toList();
+-
+-    // 4. Categorize papers into domains
+-    final categorized = PaperCategorizer.categorizeAll(papers);
+-    print('FeedRepository: classified ${categorized.length} papers');
+-    
+-    // 5. Expand vocabulary with new paper texts
+-    final newTexts = categorized
+-        .map((p) => '${p.title} ${p.abstract_ ?? ""}')
+-        .toList();
+-    _embeddingService.expandVocabulary(newTexts);
+-
+-    // 6. Embed each paper, compute similarity, rank
+-    final ranked = <RankedPaper>[];
+-    for (final paper in categorized) {
+-      final paperText = '${paper.title} ${paper.abstract_ ?? ""}';
+-      final paperVec = _embeddingService.getPaperEmbedding(
+-        paper.paperId,
+-        paperText,
+-      );
+-      final score = _embeddingService.maxSimilarity(paperVec, domainVecs);
+-      ranked.add(RankedPaper(paper: paper, similarityScore: score));
+-    }
+-
+-    // 7. Sort by similarity score (highest first)
+-    ranked.sort((a, b) => b.similarityScore.compareTo(a.similarityScore));
+-
+-    // 8. Return the top N for this page
+-    print('FeedRepository: returning ${ranked.length} papers');
+-    return ranked.take(perPage).toList();
++    return papers.asMap().entries.map((entry) {
++      final score = 1.0 - (entry.key / (papers.length.clamp(1, 999)));
++      return RankedPaper(paper: entry.value, similarityScore: score);
++    }).toList();
+   }
+ 
+-  /// Clear caches (on logout or session reset).
+   void clearCaches() {
+-    _embeddingService.clearCaches();
+-    _vocabInitialized = false;
++    // Nothing to clear locally ΓÇö caches live in Redis
+   }
+ 
+   void dispose() {
+diff --git a/scholar_shorts/lib/screens/home/home_screen.dart b/scholar_shorts/lib/screens/home/home_screen.dart
+index bcf1ce4..c92c1aa 100644
+--- a/scholar_shorts/lib/screens/home/home_screen.dart
++++ b/scholar_shorts/lib/screens/home/home_screen.dart
+@@ -5,9 +5,11 @@ import '../../providers/feed_provider.dart';
+ import '../../providers/auth_provider.dart';
+ import '../../widgets/short_paper_card.dart';
+ import '../../theme/app_theme.dart';
++import '../../models/domain.dart';
+ import '../paper_detail_screen.dart';
+ import '../search_screen.dart';
+ import '../profile_screen.dart';
++import '../journals/journals_screen.dart';
+ 
+ class HomeScreen extends StatefulWidget {
+   const HomeScreen({super.key});
+@@ -32,7 +34,10 @@ class _HomeScreenState extends State<HomeScreen> {
+     final auth = context.read<AuthProvider>();
+     final feed = context.read<FeedProvider>();
+     if (auth.profile != null && !feed.hasContent) {
+-      feed.initialize(auth.profile!.selectedDomains);
++      feed.initialize(
++        auth.profile!.selectedDomains,
++        userId: auth.profile!.id,
++      );
+     }
+   }
+ 
+@@ -44,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
+         index: _currentIndex,
+         children: [
+           _buildFeed(),
++          const JournalsScreen(),
+           const SearchScreen(),
+           const ProfileScreen(),
+         ],
+@@ -70,6 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
+               icon: Icon(Icons.style_rounded),
+               label: 'Feed',
+             ),
++            BottomNavigationBarItem(
++              icon: Icon(Icons.library_books_rounded),
++              label: 'Journals',
++            ),
+             BottomNavigationBarItem(
+               icon: Icon(Icons.search_rounded),
+               label: 'Search',
+@@ -87,69 +97,130 @@ class _HomeScreenState extends State<HomeScreen> {
+   Widget _buildFeed() {
+     return Consumer<FeedProvider>(
+       builder: (context, feed, _) {
+-        if (feed.isLoadingInitial && !feed.hasContent) {
+-          return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+-        }
++        final auth = context.read<AuthProvider>();
++        final domains = auth.profile?.selectedDomains ?? [];
+ 
+-        if (feed.error != null && !feed.hasContent) {
+-          return Center(
+-             child: Column(
+-               mainAxisAlignment: MainAxisAlignment.center,
+-               children: [
+-                 Text('Error: ${feed.error}', style: const TextStyle(color: Colors.white)),
+-                 const SizedBox(height: 16),
+-                 ElevatedButton(
+-                   onPressed: () => _initFeed(),
+-                   child: const Text('Retry'),
+-                 )
+-               ],
+-             ),
+-          );
+-        }
++        return Stack(
++          children: [
++            _buildFeedContent(feed),
++            
++            // Domain Slider Overlay
++            if (domains.isNotEmpty)
++              Positioned(
++                top: MediaQuery.of(context).padding.top + 10,
++                left: 0,
++                right: 0,
++                child: SizedBox(
++                   height: 36,
++                   child: ListView.separated(
++                     padding: const EdgeInsets.symmetric(horizontal: 16),
++                     scrollDirection: Axis.horizontal,
++                     itemCount: domains.length + 1, // +1 for "For You" (All)
++                     separatorBuilder: (_, __) => const SizedBox(width: 8),
++                     itemBuilder: (context, index) {
++                       final isAll = index == 0;
++                       final domainId = isAll ? null : domains[index - 1];
++                       final isSelected = feed.activeFilterDomainId == domainId;
++                       
++                       // Need to import DomainInfo, but it's typically imported if we are using domains.
++                       // Assumes models/domain.dart is imported.
++                       final label = isAll ? 'For You' : DomainInfo.getById(domainId!).label;
+ 
+-        final papers = feed.feedPapers;
++                       return GestureDetector(
++                         onTap: () => feed.setActiveFilterDomain(domainId),
++                         child: AnimatedContainer(
++                           duration: const Duration(milliseconds: 200),
++                           padding: const EdgeInsets.symmetric(horizontal: 16),
++                           alignment: Alignment.center,
++                           decoration: BoxDecoration(
++                             color: isSelected ? AppTheme.accent : Colors.black.withValues(alpha: 0.5),
++                             borderRadius: BorderRadius.circular(20),
++                             border: Border.all(
++                               color: isSelected ? Colors.transparent : Colors.white.withValues(alpha: 0.3),
++                             ),
++                           ),
++                           child: Text(
++                             label,
++                             style: TextStyle(
++                               color: isSelected ? Colors.white : Colors.white70,
++                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
++                               fontSize: 14,
++                             ),
++                           ),
++                         ),
++                       );
++                     },
++                   ),
++                ),
++              ),
++          ],
++        );
++      },
++    );
++  }
+ 
+-        if (papers.isEmpty) {
+-           return const Center(
+-             child: Text(
+-               'No papers found.\nTry selecting topics in Profile.',
+-               textAlign: TextAlign.center,
+-               style: TextStyle(color: Colors.white70),
+-             ),
+-           );
++  Widget _buildFeedContent(FeedProvider feed) {
++    if (feed.isLoadingInitial && !feed.hasContent) {
++      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
++    }
++
++    if (feed.error != null && !feed.hasContent) {
++      return Center(
++         child: Column(
++           mainAxisAlignment: MainAxisAlignment.center,
++           children: [
++             Text('Error: ${feed.error}', style: const TextStyle(color: Colors.white)),
++             const SizedBox(height: 16),
++             ElevatedButton(
++               onPressed: () => _initFeed(),
++               child: const Text('Retry'),
++             )
++           ],
++         ),
++      );
++    }
++
++    final papers = feed.feedPapers;
++
++    if (papers.isEmpty) {
++       return const Center(
++         child: Text(
++           'No papers found for this selection.\nTry changing your interests.',
++           textAlign: TextAlign.center,
++           style: TextStyle(color: Colors.white70),
++         ),
++       );
++    }
++
++    return PageView.builder(
++      controller: _pageController,
++      scrollDirection: Axis.vertical,
++      physics: const ReelsScrollPhysics(parent: ClampingScrollPhysics()),
++      allowImplicitScrolling: false,
++      itemCount: papers.length + (feed.hasMore ? 1 : 0),
++      onPageChanged: (index) {
++        if (index >= papers.length - 2) {
++          if (!feed.isLoadingMore && feed.hasMore && feed.error == null) {
++            feed.loadMore();
++          }
++        }
++      },
++      itemBuilder: (context, index) {
++        if (index == papers.length) {
++          return const Center(
++            child: CircularProgressIndicator(color: AppTheme.accent),
++          );
+         }
+ 
+-        return PageView.builder(
+-          controller: _pageController,
+-          scrollDirection: Axis.vertical,
+-          physics: const ReelsScrollPhysics(parent: ClampingScrollPhysics()),
+-          allowImplicitScrolling: false,
+-          itemCount: papers.length + (feed.hasMore ? 1 : 0),
+-          onPageChanged: (index) {
+-            if (index >= papers.length - 2) {
+-              if (!feed.isLoadingMore && feed.hasMore && feed.error == null) {
+-                feed.loadMore();
+-              }
+-            }
+-          },
+-          itemBuilder: (context, index) {
+-            if (index == papers.length) {
+-              return const Center(
+-                child: CircularProgressIndicator(color: AppTheme.accent),
+-              );
+-            }
+-
+-            final paper = papers[index].paper;
+-            return ShortPaperCard(
+-              paper: paper,
+-              onTap: () {
+-                Navigator.push(
+-                  context,
+-                  MaterialPageRoute(
+-                    builder: (_) => PaperDetailScreen(paper: paper),
+-                  ),
+-                );
+-              },
++        final paper = papers[index].paper;
++        return ShortPaperCard(
++          paper: paper,
++          onTap: () {
++            Navigator.push(
++              context,
++              MaterialPageRoute(
++                builder: (_) => PaperDetailScreen(paper: paper),
++              ),
+             );
+           },
+         );
+diff --git a/scholar_shorts/lib/screens/onboarding/domain_selection_screen.dart b/scholar_shorts/lib/screens/onboarding/domain_selection_screen.dart
+index de502b0..6236847 100644
+--- a/scholar_shorts/lib/screens/onboarding/domain_selection_screen.dart
++++ b/scholar_shorts/lib/screens/onboarding/domain_selection_screen.dart
+@@ -31,6 +31,7 @@ class _DomainSelectionBody extends StatefulWidget {
+ }
+ 
+ class _DomainSelectionBodyState extends State<_DomainSelectionBody> {
++  String _searchQuery = '';
+   @override
+   void initState() {
+     super.initState();
+@@ -86,7 +87,14 @@ class _DomainSelectionBodyState extends State<_DomainSelectionBody> {
+ 
+   @override
+   Widget build(BuildContext context) {
+-    final domains = DomainInfo.selectableDomains;
++    var domains = DomainInfo.selectableDomains;
++    if (_searchQuery.isNotEmpty) {
++      domains = domains
++          .where((d) =>
++              d.label.toLowerCase().contains(_searchQuery.toLowerCase()) ||
++              d.keywords.any((k) => k.toLowerCase().contains(_searchQuery.toLowerCase())))
++          .toList();
++    }
+ 
+     return Scaffold(
+       backgroundColor: AppTheme.background,
+@@ -146,7 +154,25 @@ class _DomainSelectionBodyState extends State<_DomainSelectionBody> {
+                     height: 1.5,
+                   ),
+                 ).animate(delay: 100.ms).fadeIn(duration: 400.ms),
+-                const SizedBox(height: 28),
++                const SizedBox(height: 16),
++                
++                // Search Bar
++                TextField(
++                  onChanged: (val) => setState(() => _searchQuery = val),
++                  style: const TextStyle(color: Colors.white),
++                  decoration: InputDecoration(
++                    hintText: 'Search domains...',
++                    hintStyle: const TextStyle(color: AppTheme.textDim),
++                    prefixIcon: const Icon(Icons.search, color: AppTheme.textDim),
++                    filled: true,
++                    fillColor: AppTheme.surface,
++                    border: OutlineInputBorder(
++                      borderRadius: BorderRadius.circular(16),
++                      borderSide: BorderSide.none,
++                    ),
++                  ),
++                ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
++                const SizedBox(height: 24),
+ 
+                 // Domain grid
+                 Expanded(
+diff --git a/scholar_shorts/lib/screens/paper_detail_screen.dart b/scholar_shorts/lib/screens/paper_detail_screen.dart
+index d27cdcb..948a7eb 100644
+--- a/scholar_shorts/lib/screens/paper_detail_screen.dart
++++ b/scholar_shorts/lib/screens/paper_detail_screen.dart
+@@ -6,6 +6,7 @@ import '../models/domain.dart';
+ import '../models/paper.dart';
+ import '../services/arxiv_service.dart';
+ import '../services/ai_paper_service.dart';
++import '../services/backend_api_service.dart';
+ import '../theme/app_theme.dart';
+ import 'pdf_view_screen.dart';
+ 
+@@ -35,6 +36,15 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
+   void initState() {
+     super.initState();
+     _loadAiInsights();
++    
++    // Automatically track a 'read' engagement when opening the details screen.
++    final backendApi = BackendApiService();
++    backendApi.trackEngagement(
++      paperId: widget.paper.paperId,
++      action: 'read',
++      domain: DomainInfo.getInfo(widget.paper.domain).id,
++    );
++
+     if (widget.paper.openAccessPdfUrl == null ||
+         widget.paper.openAccessPdfUrl!.isEmpty) {
+       _checkArxiv();
+@@ -844,6 +854,14 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
+   }
+ 
+   void _openPdf(BuildContext context, String url) async {
++    // Track generic click on PDF
++    final backendApi = BackendApiService();
++    backendApi.trackEngagement(
++      paperId: widget.paper.paperId,
++      action: 'click',
++      domain: DomainInfo.getInfo(widget.paper.domain).id,
++    );
++    
+     if (kIsWeb) {
+       final uri = Uri.tryParse(url);
+       if (uri != null && await canLaunchUrl(uri)) {

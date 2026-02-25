@@ -6,17 +6,32 @@ class AppTheme {
   AppTheme._();
 
   // ─── Colors ────────────────────────────────────────
-  static const Color background = Color(0xFF0B0E17);
-  static const Color surface = Color(0xFF141829);
-  static const Color surfaceVariant = Color(0xFF1A1F36);
-  static const Color glassBorder = Color(0x1AFFFFFF);
-  static const Color textPrimary = Color(0xFFE4E6F0);
-  static const Color textDim = Color(0xFF8B8FA8);
-  static const Color accent = Color(0xFF6C63FF);
+  static const Color background = Color(0xFF05070A); // Obsidian
+  static const Color surface = Color(0xFF0D1117);
+  static const Color surfaceVariant = Color(0xFF161B22);
+  static const Color glassBorder = Color(0x33FFFFFF); // Iridescent/Glass border
+  static const Color textPrimary = Color(0xFFF0F6FC);
+  static const Color textDim = Color(0xFF8B949E);
+  
+  // New Aurora Palette
+  static const Color accentTeal = Color(0xFF00F5D4);
+  static const Color accentSapphire = Color(0xFF4361EE);
+  static const Color accentViolet = Color(0xFF7209B7);
   static const Color accentEnd = Color(0xFFE052A0);
 
-  static const LinearGradient accentGradient = LinearGradient(
-    colors: [accent, accentEnd],
+  static const Color accent = accentSapphire;
+
+  static LinearGradient auroraGradient = const LinearGradient(
+    colors: [accentTeal, accentSapphire, accentViolet],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static LinearGradient glassGradient = LinearGradient(
+    colors: [
+      Colors.white.withValues(alpha: 0.1),
+      Colors.white.withValues(alpha: 0.05),
+    ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -26,40 +41,41 @@ class AppTheme {
     return ThemeData(
       brightness: Brightness.dark,
       scaffoldBackgroundColor: background,
-      primaryColor: accent,
+      primaryColor: accentSapphire,
       colorScheme: const ColorScheme.dark(
-        primary: accent,
-        secondary: accentEnd,
+        primary: accentSapphire,
+        secondary: accentTeal,
+        tertiary: accentViolet,
         surface: surface,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: textPrimary,
       ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.outfitTextTheme( // Switched to Outfit
         ThemeData.dark().textTheme.copyWith(
               headlineLarge: const TextStyle(
-                fontSize: 28,
+                fontSize: 32,
                 fontWeight: FontWeight.w800,
                 color: textPrimary,
                 letterSpacing: -1,
               ),
               headlineMedium: const TextStyle(
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
                 color: textPrimary,
               ),
               titleLarge: const TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: textPrimary,
               ),
               titleMedium: const TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: textPrimary,
               ),
               bodyLarge: const TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: textPrimary,
               ),
@@ -85,40 +101,45 @@ class AppTheme {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        titleTextStyle: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: textPrimary,
+        ),
       ),
       cardTheme: CardThemeData(
         color: surfaceVariant,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20), // Increased radius
           side: const BorderSide(color: glassBorder, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0x0FFFFFFF),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: glassBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: glassBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: const BorderSide(color: accent, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: accentTeal, width: 1.5),
         ),
         hintStyle: const TextStyle(color: textDim, fontSize: 14),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: const Color(0x0FFFFFFF),
-        selectedColor: accent,
+        backgroundColor: Colors.white.withValues(alpha: 0.05),
+        selectedColor: accentSapphire,
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: glassBorder),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

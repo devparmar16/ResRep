@@ -67,21 +67,22 @@ class _GradientButtonState extends State<GradientButton>
           width: double.infinity,
           height: widget.height,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.onPressed != null
-                  ? const [AppTheme.accent, Color(0xFFE052A0)]
-                  : [
-                      AppTheme.accent.withValues(alpha: 0.4),
-                      const Color(0xFFE052A0).withValues(alpha: 0.4),
+            gradient: widget.onPressed != null
+                ? AppTheme.auroraGradient
+                : LinearGradient(
+                    colors: [
+                      AppTheme.accentSapphire.withValues(alpha: 0.4),
+                      AppTheme.accentViolet.withValues(alpha: 0.4),
                     ],
-            ),
-            borderRadius: BorderRadius.circular(14),
+                  ),
+            borderRadius: BorderRadius.circular(16), // Slightly more rounded
             boxShadow: widget.onPressed != null
                 ? [
                     BoxShadow(
-                      color: AppTheme.accent.withValues(alpha: 0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+                      color: AppTheme.accentSapphire.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                      spreadRadius: -4,
                     ),
                   ]
                 : null,
@@ -101,8 +102,8 @@ class _GradientButtonState extends State<GradientButton>
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
+                      fontWeight: FontWeight.w700, // Slightly bolder
+                      letterSpacing: 0.5,
                     ),
                   ),
           ),

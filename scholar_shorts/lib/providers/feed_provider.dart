@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
-import '../models/domain.dart';
 import '../repositories/feed_repository.dart';
-import '../utils/constants.dart';
+import '../models/domain.dart';
 
 /// Session-based personalized feed state management.
+/// Now backed by FastAPI + Redis snapshots.
 class FeedProvider extends ChangeNotifier {
   final FeedRepository _feedRepo;
 
@@ -11,118 +11,115 @@ class FeedProvider extends ChangeNotifier {
       : _feedRepo = feedRepo ?? FeedRepository();
 
   // ─── State ────────────────────────────────────────────
-  final Map<int, List<RankedPaper>> _loadedPages = {};
-  List<DomainInfo> _userDomains = [];
+  List<RankedPaper> _papers = [];
+  List<String> _domainIds = [];
+  String? _userId;
+  String? _activeFilterDomainId;
+  
   bool _isLoadingInitial = false;
   bool _isLoadingMore = false;
   String? _error;
-  int _totalPagesLoaded = 0;
 
   // ─── Getters ──────────────────────────────────────────
   bool get isLoadingInitial => _isLoadingInitial;
   bool get isLoadingMore => _isLoadingMore;
   String? get error => _error;
-  int get totalPagesLoaded => _totalPagesLoaded;
-  bool get hasContent => _loadedPages.isNotEmpty;
+  bool get hasContent => _papers.isNotEmpty;
+  bool get hasMore => false; // Feed is snapshot-based, no pagination
+  int get totalPagesLoaded => hasContent ? 1 : 0;
+  
+  String? get activeFilterDomainId => _activeFilterDomainId;
 
-  bool get hasMore => _totalPagesLoaded < 50; // reasonable upper limit
-
-  /// Flatten all loaded pages into a single list.
+  /// All loaded papers (snapshot) filtered by the active domain.
   List<RankedPaper> get feedPapers {
-    final all = <RankedPaper>[];
-    for (int i = 0; i < _totalPagesLoaded; i++) {
-      if (_loadedPages.containsKey(i)) {
-        all.addAll(_loadedPages[i]!);
-      }
+    if (_activeFilterDomainId == null) {
+      return List.unmodifiable(_papers); // For You (default ranking)
     }
-    return all;
+    
+    if (_activeFilterDomainId == 'trending') {
+      final sorted = List.of(_papers);
+      sorted.sort((a, b) => b.paper.citationCount.compareTo(a.paper.citationCount));
+      return sorted;
+    }
+    
+    if (_activeFilterDomainId == 'latest') {
+      final sorted = List.of(_papers);
+      sorted.sort((a, b) {
+        final dateA = a.paper.publicationDate ?? '${a.paper.year ?? '0000'}';
+        final dateB = b.paper.publicationDate ?? '${b.paper.year ?? '0000'}';
+        return dateB.compareTo(dateA);
+      });
+      return sorted;
+    }
+
+    final targetDomain = DomainInfo.getById(_activeFilterDomainId!).domain;
+    return _papers.where((p) => p.paper.domain == targetDomain).toList();
   }
 
   // ─── Actions ──────────────────────────────────────────
 
-  /// Set the user's domains and load the initial batch.
-  Future<void> initialize(List<String> domainIds) async {
-    if (_loadedPages.isNotEmpty) return; // already loaded
+  /// Set the user's domains and load the feed snapshot.
+  Future<void> initialize(List<String> domainIds, {String? userId}) async {
+    if (_papers.isNotEmpty) return; // already loaded
 
-    _userDomains = DomainInfo.getByIds(domainIds);
-    if (_userDomains.isEmpty) return;
+    _domainIds = domainIds;
+    _userId = userId ?? 'default-user';
+    if (_domainIds.isEmpty) return;
 
-    await _loadBatch(isInitial: true);
-  }
-
-  /// Load more: fetches the next batch of pages.
-  Future<void> loadMore() async {
-    if (_isLoadingMore || !hasMore) return;
-    await _loadBatch(isInitial: false);
-  }
-
-  Future<void> _loadBatch({required bool isInitial}) async {
-    if (isInitial) {
-      _isLoadingInitial = true;
-    } else {
-      _isLoadingMore = true;
-    }
+    _isLoadingInitial = true;
     _error = null;
     notifyListeners();
 
     try {
-      final startPage = _totalPagesLoaded;
-      final endPage = startPage + AppConstants.pagesPerBatch;
-
-      for (int page = startPage; page < endPage; page++) {
-        final ranked = await _feedRepo.fetchRankedPage(
-          domains: _userDomains,
-          pageIndex: page,
-        );
-
-        if (ranked.isEmpty) break; // no more results
-
-        _loadedPages[page] = ranked;
-        _totalPagesLoaded = page + 1;
-
-        // Notify after each page for progressive UI updates
-        notifyListeners();
-
-        // Small delay to respect API rate limits
-        if (page < endPage - 1) {
-          await Future.delayed(
-            Duration(milliseconds: AppConstants.apiDelayMs),
-          );
-        }
-      }
+      _papers = await _feedRepo.fetchFeed(
+        userId: _userId!,
+        domainIds: _domainIds,
+      );
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoadingInitial = false;
-      _isLoadingMore = false;
       notifyListeners();
     }
   }
 
+  /// Load more — no-op for snapshot-based feeds.
+  Future<void> loadMore() async {
+    // Snapshot-based: all papers are loaded at once
+  }
 
-  /// Reset feed and reload with new domains.
+  /// Pull-to-refresh: force-rebuild the feed via backend.
   Future<void> refresh(List<String> domainIds) async {
-    // 1. Clear current state
-    _loadedPages.clear();
-    _totalPagesLoaded = 0;
-    _userDomains = [];
+    _isLoadingInitial = true;
     _error = null;
+    _domainIds = domainIds;
     notifyListeners();
 
-    // 2. Clear repository caches
-    _feedRepo.clearCaches();
+    try {
+      _papers = await _feedRepo.refreshFeed(
+        userId: _userId ?? 'default-user',
+        domainIds: _domainIds,
+      );
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoadingInitial = false;
+      notifyListeners();
+    }
+  }
 
-    // 3. Re-initialize
-    await initialize(domainIds);
+  void setActiveFilterDomain(String? domainId) {
+    _activeFilterDomainId = domainId;
+    notifyListeners();
   }
 
   /// Reset feed (on logout or domain change).
   void reset() {
-    _loadedPages.clear();
-    _totalPagesLoaded = 0;
-    _userDomains = [];
+    _papers = [];
+    _domainIds = [];
+    _userId = null;
+    _activeFilterDomainId = null;
     _error = null;
-    _feedRepo.clearCaches();
     notifyListeners();
   }
 

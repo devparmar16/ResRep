@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'services/huggingface_embedding_service.dart';
 import 'providers/feed_provider.dart';
 import 'providers/search_provider.dart';
+import 'providers/journal_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/auth/profile_completion_screen.dart';
@@ -37,8 +38,9 @@ class ScholarShortsApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => SearchProvider()), // Might be unused in Shorts? Or maybe for manual search
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider(create: (_) => FeedProvider()),
+        ChangeNotifierProvider(create: (_) => JournalProvider()),
       ],
       child: MaterialApp(
         title: 'Scholar Shorts',

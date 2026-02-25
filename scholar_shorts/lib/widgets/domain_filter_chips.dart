@@ -57,7 +57,7 @@ class DomainFilterChips extends StatelessWidget {
           curve: Curves.easeInOut,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            gradient: isActive ? AppTheme.accentGradient : null,
+            gradient: isActive ? AppTheme.auroraGradient : null,
             color: isActive ? null : const Color(0x0FFFFFFF),
             borderRadius: BorderRadius.circular(30),
             border: Border.all(

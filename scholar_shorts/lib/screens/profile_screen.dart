@@ -7,6 +7,7 @@ import '../models/domain.dart';
 import '../theme/app_theme.dart';
 import '../services/huggingface_embedding_service.dart';
 import 'onboarding/domain_selection_screen.dart';
+import '../widgets/glass_card.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -40,27 +41,25 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // Profile card
-                Container(
-                  width: double.infinity,
+                GlassCard(
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
-                    ),
-                  ),
+                  borderRadius: 24,
                   child: Column(
                     children: [
                       // ... (Avatar/Name logic) ...
                       Container(
-                        width: 72,
-                        height: 72,
+                        width: 76,
+                        height: 76,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.accent, Color(0xFFE052A0)],
-                          ),
+                          gradient: AppTheme.auroraGradient,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.accentTeal.withAlpha(60),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
                         child: Center(
                           child: Text(
@@ -70,7 +69,7 @@ class ProfileScreen extends StatelessWidget {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
@@ -80,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
                         profile?.fullName ?? 'User',
                         style: const TextStyle(
                           color: AppTheme.textPrimary,
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -89,49 +88,63 @@ class ProfileScreen extends StatelessWidget {
                         profile?.email ?? '',
                         style: const TextStyle(
                           color: AppTheme.textDim,
-                          fontSize: 14,
+                          fontSize: 15,
                         ),
                       ),
                       if (profile?.collegeName.isNotEmpty ?? false) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           profile!.collegeName,
                           style: const TextStyle(
                             color: AppTheme.textDim,
                             fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       // Selected domains
                       if (profile?.selectedDomains.isNotEmpty ?? false)
                         Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
                           children: profile!.selectedDomains.map((id) {
                             final d = DomainInfo.getById(id);
                             return Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                                horizontal: 14,
+                                vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: d.badgeBg,
-                                borderRadius: BorderRadius.circular(10),
+                                color: d.color.withAlpha(20),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: d.color.withAlpha(150),
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: d.color.withAlpha(40),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
                               child: Text(
                                 '${d.icon} ${d.label}',
                                 style: TextStyle(
                                   color: d.color,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                             );
                           }).toList(),
                         ),
                       
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       TextButton.icon(
                         onPressed: () {
                            Navigator.push(
@@ -148,12 +161,12 @@ class ProfileScreen extends StatelessWidget {
                             }
                           });
                         },
-                        icon: const Icon(Icons.edit_rounded, size: 16, color: AppTheme.accent),
-                        label: const Text('Edit Interests', style: TextStyle(color: AppTheme.accent)),
+                        icon: const Icon(Icons.edit_rounded, size: 16, color: AppTheme.accentTeal),
+                        label: const Text('Edit Interests', style: TextStyle(color: AppTheme.accentTeal, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
-                ).animate().fadeIn(duration: 400.ms),
+                ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05),
 
                 const SizedBox(height: 40),
 

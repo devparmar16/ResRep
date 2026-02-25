@@ -21,7 +21,6 @@ class ShortPaperCard extends StatefulWidget {
 }
 
 class _ShortPaperCardState extends State<ShortPaperCard> {
-  bool _isAbstractExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -29,292 +28,321 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
     final domainInfo = DomainInfo.getInfo(paper.domain);
     final color = domainInfo.color;
 
-    // Use TLDR if available, otherwise heuristic summary (first sentence)
-    final String summaryText = paper.tldr ?? 
-        (paper.abstract_?.split('.').take(2).join('.') ?? 'No summary available.');
-    
-    // Clean up summary (remove trailing period if join added one, or ensure one)
-    final cleanSummary = summaryText.endsWith('.') ? summaryText : '$summaryText.';
-
     return GestureDetector(
       onTap: widget.onTap,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Dynamic Background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  color.withValues(alpha: 0.15),
-                  AppTheme.background,
-                  AppTheme.background,
-                ],
-                stops: const [0.0, 0.4, 1.0],
-              ),
-            ),
-          ),
+          // 1. Dynamic Aurora Background
+          _buildAuroraBackground(color),
           
-          // Decorative blurry blobs
-          Positioned(
-            top: -100,
-            right: -100,
+          // 2. Main Content Overlay (Bottom Anchored)
+          _buildBottomDetails(paper, domainInfo),
+
+          // 3. Side Action Sidebar
+          _buildActionSidebar(paper),
+
+          // 4. Subtle Navigation Hints
+          _buildNavigationHints(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuroraBackground(Color domainColor) {
+    return Stack(
+      children: [
+        Container(color: AppTheme.background),
+        // Layered blobs with parallax-like animation
+        Positioned(
+          top: -150,
+          left: -100,
+          child: _AuroraBlob(
+            color: domainColor.withValues(alpha: 0.15),
+            size: 400,
+            duration: 8.seconds,
+          ),
+        ),
+        Positioned(
+          bottom: 100,
+          right: -150,
+          child: _AuroraBlob(
+            color: AppTheme.accentViolet.withValues(alpha: 0.1),
+            size: 500,
+            duration: 12.seconds,
+          ),
+        ),
+        Positioned(
+          top: 300,
+          right: 50,
+          child: _AuroraBlob(
+            color: AppTheme.accentTeal.withValues(alpha: 0.08),
+            size: 300,
+            duration: 10.seconds,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomDetails(Paper paper, DomainInfo domain) {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 60, 80, 40), // More space on right for sidebar
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              AppTheme.background.withValues(alpha: 0.95),
+              AppTheme.background.withValues(alpha: 0.4),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.6, 1.0],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Domain Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: domain.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: domain.color.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(domain.icon, style: const TextStyle(fontSize: 12)),
+                  const SizedBox(width: 6),
+                  Text(
+                    domain.label.toUpperCase(),
+                    style: TextStyle(
+                      color: domain.color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1),
+
+            const SizedBox(height: 12),
+
+            // Title
+            Text(
+              paper.title,
+              style: GoogleFonts.outfit(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+                height: 1.25,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    offset: const Offset(0, 2),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ).animate().fadeIn(delay: 100.ms, duration: 600.ms).slideY(begin: 0.1),
+
+            const SizedBox(height: 12),
+
+            // TL;DR / Summary Box
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Text(
+                    paper.tldr ?? "No summary available for this paper.",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: AppTheme.textPrimary.withValues(alpha: 0.9),
+                      height: 1.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ).animate().fadeIn(delay: 300.ms).scaleXY(begin: 0.95),
+
+            const SizedBox(height: 12),
+
+            // Authors
+            Text(
+              'By ${paper.authors.take(2).join(", ")}${paper.authors.length > 2 ? " et al." : ""}',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textDim.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ).animate().fadeIn(delay: 500.ms),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionSidebar(Paper paper) {
+    return Positioned(
+      right: 12,
+      bottom: 120,
+      child: Column(
+        children: [
+          _SidebarAction(
+            icon: Icons.favorite_rounded,
+            label: '1.2k',
+            color: Colors.redAccent,
+          ),
+          const SizedBox(height: 24),
+          _SidebarAction(
+            icon: Icons.bookmark_rounded,
+            label: 'Save',
+            color: AppTheme.accentTeal,
+          ),
+          const SizedBox(height: 24),
+          _SidebarAction(
+            icon: Icons.share_rounded,
+            label: 'Share',
+            color: AppTheme.accentSapphire,
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: widget.onTap,
             child: Container(
-              width: 300,
-              height: 300,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.1),
+                gradient: AppTheme.auroraGradient,
                 boxShadow: [
                   BoxShadow(
-                    color: color.withValues(alpha: 0.2),
-                    blurRadius: 100,
-                    spreadRadius: 20,
+                    color: AppTheme.accentSapphire.withValues(alpha: 0.4),
+                    blurRadius: 15,
+                    spreadRadius: 2,
                   ),
                 ],
               ),
+              child: const Icon(Icons.description_rounded, color: Colors.white, size: 24),
             ),
-          ),
+          ).animate(onPlay: (controller) => controller.repeat())
+            .shimmer(duration: 2.seconds, color: Colors.white38),
+        ],
+      ),
+    ).animate().fadeIn(delay: 600.ms).slideX(begin: 0.5);
+  }
 
-          // 2. Main Content
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   // Top Bar: Domain Badge + Date
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: domainInfo.badgeBg,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: color.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(domainInfo.icon,
-                                style: const TextStyle(fontSize: 14)),
-                            const SizedBox(width: 6),
-                            Text(
-                              domainInfo.label.toUpperCase(),
-                              style: TextStyle(
-                                color: color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      if (paper.year != null)
-                        Text(
-                          '${paper.year}',
-                          style: TextStyle(
-                            color: AppTheme.textDim.withValues(alpha: 0.6),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                    ],
-                  ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1),
+  Widget _buildNavigationHints() {
+    return Positioned(
+      bottom: 16,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Icon(
+          Icons.keyboard_arrow_up_rounded,
+          color: AppTheme.textDim.withValues(alpha: 0.3),
+          size: 24,
+        )
+        .animate(onPlay: (controller) => controller.repeat(reverse: true))
+        .moveY(begin: 0, end: -8, duration: 1.seconds),
+      ),
+    );
+  }
+}
 
-                  const Spacer(flex: 1),
+class _AuroraBlob extends StatelessWidget {
+  final Color color;
+  final double size;
+  final Duration duration;
 
-                  // Image or Icon
-                  Center(
-                    child: Icon(
-                      domainInfo.icon == '💻' ? Icons.computer : Icons.science,
-                      size: 60,
-                      color: color.withValues(alpha: 0.1),
-                    ),
-                  ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+  const _AuroraBlob({
+    required this.color,
+    required this.size,
+    required this.duration,
+  });
 
-                  const Spacer(flex: 2),
-
-                  // Title
-                  Text(
-                    paper.title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 24, // Slightly smaller to fit more content
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                      color: AppTheme.textPrimary,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ).animate().fadeIn(delay: 100.ms, duration: 500.ms).slideY(begin: 0.1),
-
-                  const SizedBox(height: 12),
-
-                  // Authors
-                  if (paper.authors.isNotEmpty)
-                    Text(
-                      'By ${paper.authors.take(2).join(", ")}${paper.authors.length > 2 ? " et al." : ""}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppTheme.textDim,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ).animate().fadeIn(delay: 200.ms),
-
-                  const SizedBox(height: 20),
-
-                  // SUMMARY SECTION (New)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceVariant.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.bolt_rounded, size: 16, color: AppTheme.accent),
-                            const SizedBox(width: 8),
-                            Text(
-                              'QUICK SUMMARY',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.accent.withValues(alpha: 0.8),
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          cleanSummary,
-                          style: GoogleFonts.inter(
-                            fontSize: 14, // Readable
-                            height: 1.5,
-                            color: AppTheme.textPrimary.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1),
-
-                  const SizedBox(height: 16),
-
-                  // Abstract (Expandable)
-                  Expanded(
-                    flex: _isAbstractExpanded ? 10 : 0, // Flexible when expanded
-                    child: SingleChildScrollView(
-                       physics: _isAbstractExpanded ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics(),
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         mainAxisSize: MainAxisSize.min,
-                         children: [
-                           Text(
-                            'ABSTRACT',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textDim.withValues(alpha: 0.5),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _isAbstractExpanded = !_isAbstractExpanded;
-                              });
-                            },
-                            child: AnimatedCrossFade(
-                              duration: const Duration(milliseconds: 300),
-                              crossFadeState: _isAbstractExpanded 
-                                  ? CrossFadeState.showSecond 
-                                  : CrossFadeState.showFirst,
-                              firstChild: Text(
-                                paper.abstract_ ?? "No abstract.",
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  height: 1.5,
-                                  color: AppTheme.textDim,
-                                ),
-                                maxLines: 5,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              secondChild: Text(
-                                paper.abstract_ ?? "No abstract.",
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  height: 1.5,
-                                  color: AppTheme.textDim,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (!_isAbstractExpanded && (paper.abstract_?.length ?? 0) > 200)
-                             GestureDetector(
-                               onTap: () => setState(() => _isAbstractExpanded = true),
-                               child: Padding(
-                                 padding: const EdgeInsets.only(top: 4),
-                                 child: Text(
-                                   'Read more...',
-                                   style: TextStyle(
-                                     color: AppTheme.accent,
-                                     fontSize: 12,
-                                     fontWeight: FontWeight.w600,
-                                   ),
-                                 ),
-                               ),
-                             ),
-                         ],
-                       ),
-                    ),
-                  ),
-
-                  if (!_isAbstractExpanded) const Spacer(flex: 1), // Push bottom up if not expanded
-
-                  // Bottom Action
-                  Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          'Tap card to open full paper',
-                          style: TextStyle(
-                            color: AppTheme.textDim.withValues(alpha: 0.5),
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Icon(
-                          Icons.keyboard_arrow_up_rounded,
-                          color: AppTheme.textDim.withValues(alpha: 0.5),
-                        )
-                        .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                        .moveY(begin: 0, end: -5, duration: 1000.ms, curve: Curves.easeInOut),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 1000.ms),
-                ],
-              ),
-            ),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        boxShadow: [
+          BoxShadow(
+            color: color,
+            blurRadius: 100,
+            spreadRadius: 20,
           ),
         ],
       ),
+    ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+     .moveY(begin: -20, end: 20, duration: duration, curve: Curves.easeInOutSine)
+     .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: duration, curve: Curves.easeInOutSine);
+  }
+}
+
+class _SidebarAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _SidebarAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Icon(icon, color: Colors.white, size: 26),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }

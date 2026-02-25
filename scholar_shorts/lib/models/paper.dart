@@ -13,8 +13,15 @@ class Paper {
   final List<String> authors;
   final List<String> fieldsOfStudy;
   final PaperDomain domain;
+  final String? journal;
+  final String? journalId;
+  final String? publicationDate;
+  final String? landingPageUrl;
+  final String? pdfUrl;
+  final bool isOpenAccess;
 
   final String? tldr; // "Too Long; Didn't Read" summary
+  final String? subdomain; // Specific domain tag
 
   Paper({
     required this.paperId,
@@ -29,6 +36,13 @@ class Paper {
     this.authors = const [],
     this.fieldsOfStudy = const [],
     this.domain = PaperDomain.other,
+    this.subdomain,
+    this.journal,
+    this.journalId,
+    this.publicationDate,
+    this.landingPageUrl,
+    this.pdfUrl,
+    this.isOpenAccess = false,
   });
 
   /// Create a Paper from the Semantic Scholar API JSON response.
@@ -46,6 +60,9 @@ class Paper {
 
     final externalIds = json['externalIds'] as Map<String, dynamic>?;
     final openAccessPdf = json['openAccessPdf'] as Map<String, dynamic>?;
+    final openAccessPdfUrl = (openAccessPdf != null && openAccessPdf.containsKey('url')) 
+        ? openAccessPdf['url'] as String? 
+        : null;
     final tldrMap = json['tldr'] as Map<String, dynamic>?;
 
     return Paper(
@@ -56,10 +73,18 @@ class Paper {
       year: json['year'] as int?,
       citationCount: json['citationCount'] as int? ?? 0,
       url: json['url'] as String?,
-      openAccessPdfUrl: openAccessPdf?['url'] as String?,
-      doi: externalIds?['DOI'] as String?,
+      openAccessPdfUrl: openAccessPdfUrl,
+      doi: json['doi'] as String? ?? externalIds?['DOI'] as String?,
       authors: authorsList,
       fieldsOfStudy: fields,
+      domain: DomainInfo.getById(json['domain'] as String? ?? 'other').domain,
+      subdomain: json['subdomain'] as String?,
+      journal: json['journal'] as String?,
+      journalId: json['journal_id'] as String?,
+      publicationDate: json['publication_date'] as String?,
+      landingPageUrl: json['landing_page_url'] as String?,
+      pdfUrl: json['pdf_url'] as String?,
+      isOpenAccess: json['is_open_access'] as bool? ?? false,
     );
   }
 
@@ -78,6 +103,13 @@ class Paper {
       authors: authors,
       fieldsOfStudy: fieldsOfStudy,
       domain: newDomain,
+      subdomain: subdomain,
+      journal: journal,
+      journalId: journalId,
+      publicationDate: publicationDate,
+      landingPageUrl: landingPageUrl,
+      pdfUrl: pdfUrl,
+      isOpenAccess: isOpenAccess,
     );
   }
 }

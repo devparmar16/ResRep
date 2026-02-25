@@ -31,6 +31,7 @@ class _DomainSelectionBody extends StatefulWidget {
 }
 
 class _DomainSelectionBodyState extends State<_DomainSelectionBody> {
+  String _searchQuery = '';
   @override
   void initState() {
     super.initState();
@@ -86,7 +87,14 @@ class _DomainSelectionBodyState extends State<_DomainSelectionBody> {
 
   @override
   Widget build(BuildContext context) {
-    final domains = DomainInfo.selectableDomains;
+    var domains = DomainInfo.selectableDomains;
+    if (_searchQuery.isNotEmpty) {
+      domains = domains
+          .where((d) =>
+              d.label.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              d.keywords.any((k) => k.toLowerCase().contains(_searchQuery.toLowerCase())))
+          .toList();
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -146,7 +154,25 @@ class _DomainSelectionBodyState extends State<_DomainSelectionBody> {
                     height: 1.5,
                   ),
                 ).animate(delay: 100.ms).fadeIn(duration: 400.ms),
-                const SizedBox(height: 28),
+                const SizedBox(height: 16),
+                
+                // Search Bar
+                TextField(
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Search domains...',
+                    hintStyle: const TextStyle(color: AppTheme.textDim),
+                    prefixIcon: const Icon(Icons.search, color: AppTheme.textDim),
+                    filled: true,
+                    fillColor: AppTheme.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
+                const SizedBox(height: 24),
 
                 // Domain grid
                 Expanded(

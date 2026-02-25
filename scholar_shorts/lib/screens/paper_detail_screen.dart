@@ -6,14 +6,22 @@ import '../models/domain.dart';
 import '../models/paper.dart';
 import '../services/arxiv_service.dart';
 import '../services/ai_paper_service.dart';
+import '../services/backend_api_service.dart';
 import '../theme/app_theme.dart';
 import 'pdf_view_screen.dart';
+import 'journals/journal_papers_screen.dart';
+import '../widgets/glass_card.dart';
 
 /// Full-screen detail page for a research paper.
 class PaperDetailScreen extends StatefulWidget {
   final Paper paper;
+  final bool isFromJournalSection;
 
-  const PaperDetailScreen({super.key, required this.paper});
+  const PaperDetailScreen({
+    super.key, 
+    required this.paper, 
+    this.isFromJournalSection = false,
+  });
 
   @override
   State<PaperDetailScreen> createState() => _PaperDetailScreenState();
@@ -35,6 +43,15 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
   void initState() {
     super.initState();
     _loadAiInsights();
+    
+    // Automatically track a 'read' engagement when opening the details screen.
+    final backendApi = BackendApiService();
+    backendApi.trackEngagement(
+      paperId: widget.paper.paperId,
+      action: 'read',
+      domain: DomainInfo.getInfo(widget.paper.domain).id,
+    );
+
     if (widget.paper.openAccessPdfUrl == null ||
         widget.paper.openAccessPdfUrl!.isEmpty) {
       _checkArxiv();
@@ -159,6 +176,26 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
                       const SizedBox(width: 8),
                       // ── Difficulty Badge ──
                       _buildDifficultyBadge(),
+                      const SizedBox(width: 8),
+                      // ── Open Access Badge ──
+                      if (widget.paper.isOpenAccess)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1B3A2D),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('🟢 OA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4ADE80))),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3A1B1B),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('🔒 Sub', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFF87171))),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -190,6 +227,30 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
                           '🏷️',
                           widget.paper.fieldsOfStudy.join(', '),
                         ),
+                      if (widget.paper.journal != null && widget.paper.journal!.isNotEmpty)
+                        GestureDetector(
+                          onTap: widget.isFromJournalSection || widget.paper.journalId == null
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => JournalPapersScreen(
+                                        journalId: widget.paper.journalId!,
+                                        journalName: widget.paper.journal!,
+                                      ),
+                                    ),
+                                  );
+                                },
+                          child: _metaChip(
+                            '📖',
+                            widget.paper.journal!,
+                            color: (!widget.isFromJournalSection && widget.paper.journalId != null)
+                                ? AppTheme.accent
+                                : AppTheme.textDim,
+                            underline: !widget.isFromJournalSection && widget.paper.journalId != null,
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 28),
@@ -207,16 +268,9 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
                       widget.paper.abstract_ != null) ...[
                     _sectionLabel('Quick Summary'),
                     const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
+                    GlassCard(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color:
-                            AppTheme.surfaceVariant.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: AppTheme.accent.withValues(alpha: 0.2)),
-                      ),
+                      borderRadius: 16,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -417,22 +471,9 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
       children: [
         _sectionLabel('Simple Explanation'),
         const SizedBox(height: 8),
-        Container(
-          width: double.infinity, 
-          // ... rest of container
+        GlassCard(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                const Color(0xFF7C3AED).withValues(alpha: 0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
-          ),
+          borderRadius: 16,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -477,14 +518,9 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
       children: [
         _sectionLabel('Key Takeaways'),
         const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
+        GlassCard(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceVariant.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.3)),
-          ),
+          borderRadius: 16,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -569,14 +605,9 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
     final abstractText = widget.paper.abstract_ ?? 'No abstract available.';
     final jargonWords = _insight?.jargonWords ?? [];
 
-    return Container(
-      width: double.infinity,
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.glassBorder),
-      ),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -760,7 +791,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
     );
   }
 
-  Widget _metaChip(String icon, String text) {
+  Widget _metaChip(String icon, String text, {Color? color, bool underline = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -768,24 +799,46 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
         const SizedBox(width: 5),
         Text(
           text,
-          style: const TextStyle(fontSize: 13, color: AppTheme.textDim),
+          style: TextStyle(
+            fontSize: 13, 
+            color: color ?? AppTheme.textDim,
+            decoration: underline ? TextDecoration.underline : null,
+            decorationColor: color ?? AppTheme.textDim,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, String? pdfUrl) {
+  Widget _buildActionButtons(BuildContext context, String? fallbackPdfUrl) {
     final buttons = <Widget>[];
 
+    // Priority 1: Landing Page URL
+    final landingUrl = widget.paper.landingPageUrl ?? 
+        (widget.paper.doi != null ? 'https://doi.org/${widget.paper.doi}' : null);
+
+    if (landingUrl != null) {
+      buttons.add(
+        _actionButton(
+          label: '📄 Read Full Paper',
+          gradient: true,
+          onTap: () => _launchUrl(landingUrl),
+        ),
+      );
+    }
+
+    // Priority 2: PDF Download (Only if Open Access)
+    final pdfUrl = widget.paper.isOpenAccess ? (widget.paper.pdfUrl ?? fallbackPdfUrl) : null;
+    
     if (pdfUrl != null) {
       buttons.add(
         _actionButton(
-          label: _fallbackPdfUrl != null ? '📄 Read (arXiv)' : '📄 Read Paper',
-          gradient: true,
+          label: '⬇️ Download PDF',
+          gradient: false,
           onTap: () => _openPdf(context, pdfUrl),
         ),
       );
-    } else if (_isCheckingArxiv) {
+    } else if (widget.paper.isOpenAccess && _isCheckingArxiv) {
       buttons.add(
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
@@ -818,22 +871,22 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
       );
     }
 
-    if (widget.paper.url != null) {
-      buttons.add(
-        _actionButton(
-          label: 'View on Semantic Scholar ↗',
-          gradient: false,
-          onTap: () => _launchUrl(widget.paper.url!),
-        ),
-      );
-    }
-
-    if (widget.paper.doi != null) {
+    if (widget.paper.doi != null && widget.paper.landingPageUrl != null) {
+      // Show DOI separately only if we already used landingPageUrl for the main Read button
       buttons.add(
         _actionButton(
           label: '🔗 DOI',
           gradient: false,
           onTap: () => _launchUrl('https://doi.org/${widget.paper.doi}'),
+        ),
+      );
+    } else if (widget.paper.url != null && landingUrl == null) {
+      // Fallback to semantic scholar if we have no landing page or DOI
+      buttons.add(
+        _actionButton(
+          label: 'View on Semantic Scholar ↗',
+          gradient: false,
+          onTap: () => _launchUrl(widget.paper.url!),
         ),
       );
     }
@@ -844,6 +897,14 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
   }
 
   void _openPdf(BuildContext context, String url) async {
+    // Track generic click on PDF
+    final backendApi = BackendApiService();
+    backendApi.trackEngagement(
+      paperId: widget.paper.paperId,
+      action: 'click',
+      domain: DomainInfo.getInfo(widget.paper.domain).id,
+    );
+    
     if (kIsWeb) {
       final uri = Uri.tryParse(url);
       if (uri != null && await canLaunchUrl(uri)) {
@@ -878,7 +939,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          gradient: gradient ? AppTheme.accentGradient : null,
+          gradient: gradient ? AppTheme.auroraGradient : null,
           color: gradient ? null : AppTheme.surfaceVariant,
           borderRadius: BorderRadius.circular(30),
           border: gradient
