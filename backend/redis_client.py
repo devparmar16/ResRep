@@ -116,3 +116,35 @@ async def track_engagement(action_type: str, paper_id: str, value: float = 1.0, 
     # Subdomain tracking
     if subdomain:
         await r.zincrby(f"trending:subdomain:{subdomain}", value, paper_id)
+
+
+async def store_social_sources(paper_id: str, sources: list[str], ttl: int) -> None:
+    """Store the list of platforms where a paper is trending."""
+    r = await get_redis()
+    key = f"social_trending:sources:{paper_id}"
+    await r.setex(key, ttl, json.dumps(sources))
+
+
+async def get_social_sources(paper_id: str) -> list[str]:
+    """Retrieve the trending source platforms for a paper."""
+    r = await get_redis()
+    key = f"social_trending:sources:{paper_id}"
+    val = await r.get(key)
+    if val:
+        try:
+            return json.loads(val)
+        except Exception:
+            return []
+    return []
+
+
+async def get_resolve_cache(key: str) -> str | None:
+    """Check if a resolution result is cached. Returns paper_id or '__MISS__' or None."""
+    r = await get_redis()
+    return await r.get(f"resolve_cache:{key}")
+
+
+async def set_resolve_cache(key: str, value: str, ttl: int) -> None:
+    """Cache a resolution result (paper_id or '__MISS__')."""
+    r = await get_redis()
+    await r.setex(f"resolve_cache:{key}", ttl, value)

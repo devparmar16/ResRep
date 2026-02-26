@@ -8,6 +8,8 @@ import 'services/huggingface_embedding_service.dart';
 import 'providers/feed_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/journal_provider.dart';
+import 'providers/trending_provider.dart';
+import 'providers/bookmark_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/auth/profile_completion_screen.dart';
@@ -41,6 +43,8 @@ class ScholarShortsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider(create: (_) => FeedProvider()),
         ChangeNotifierProvider(create: (_) => JournalProvider()),
+        ChangeNotifierProvider(create: (_) => TrendingProvider()),
+        ChangeNotifierProvider(create: (_) => BookmarkProvider()),
       ],
       child: MaterialApp(
         title: 'Scholar Shorts',

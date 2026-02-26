@@ -12,8 +12,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import redis_client
 import openalex_service
 from background_jobs import domain_fetch_job, decay_trending_job
-from routers import feed, journals, health, engagement, search
-from config import DOMAIN_FETCH_INTERVAL_MINUTES
+from social_trending_jobs import social_trending_fetch_job
+from routers import feed, journals, health, engagement, search, social_trending
+from config import DOMAIN_FETCH_INTERVAL_MINUTES, SOCIAL_FETCH_INTERVAL_HOURS
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -65,8 +66,19 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     
+    # Schedule social trending fetch
+    scheduler.add_job(
+        social_trending_fetch_job,
+        "interval",
+        hours=SOCIAL_FETCH_INTERVAL_HOURS,
+        id="social_trending_fetch",
+        replace_existing=True,
+    )
+    # Run initial social trending fetch
+    asyncio.create_task(social_trending_fetch_job())
+    
     scheduler.start()
-    logger.info(f"Scheduler started: domain fetch every {DOMAIN_FETCH_INTERVAL_MINUTES} min, decay every 12 hours.")
+    logger.info(f"Scheduler started: domain fetch every {DOMAIN_FETCH_INTERVAL_MINUTES} min, decay every 12 hours, social trending every {SOCIAL_FETCH_INTERVAL_HOURS} hours.")
 
     yield
 
@@ -106,4 +118,5 @@ app.include_router(feed.router)
 app.include_router(journals.router)
 app.include_router(engagement.router)
 app.include_router(search.router)
+app.include_router(social_trending.router)
 app.include_router(health.router)

@@ -9,4 +9,6 @@ class SupabaseConfig {
 
   // Table names
   static const String loginTable = 'login';
+  static const String collectionsTable = 'collections';
+  static const String savedPapersTable = 'saved_papers';
 }

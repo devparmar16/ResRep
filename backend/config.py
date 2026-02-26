@@ -106,3 +106,64 @@ DOMAIN_SEARCH_QUERIES: dict[str, str] = {
     "law": "Law",
     "interdisciplinary": "Interdisciplinary Research",
 }
+
+# ── Social Trending (2-Phase Architecture) ───────────────────────────────
+SOCIAL_FETCH_INTERVAL_HOURS = 3
+SOCIAL_TRENDING_TTL = 3600           # 1 hour for trending ZSETs
+SOCIAL_SOURCES_TTL = 3600            # 1 hour for platform badges
+SOCIAL_METADATA_TTL = 6 * 3600      # 6 hours for paper metadata cache
+RESOLVE_CACHE_TTL = 24 * 3600       # 24 hours for resolution cache
+
+# Phase 1 — Engagement thresholds (filter noise)
+REDDIT_MIN_SCORE = 15
+HN_MIN_POINTS = 30
+MAX_CANDIDATES_PER_CYCLE = 50       # Only resolve top N per job run
+
+# Phase 1 — Research keyword filter
+RESEARCH_KEYWORDS = [
+    "paper", "study", "preprint", "published", "arxiv",
+    "research", "findings", "journal", "peer-reviewed",
+    "experiment", "dataset", "benchmark", "model",
+]
+
+# Phase 2 — Confidence gating
+CONFIDENCE_THRESHOLD = 0.75
+TITLE_SIMILARITY_THRESHOLD = 0.80   # For fuzzy title matching
+
+# Scoring formula (Phase 2)
+PLATFORM_WEIGHT = 5                  # distinct_platforms × 5
+MENTION_WEIGHT = 2                   # mention_count × 2
+ENGAGEMENT_LOG_WEIGHT = 3            # log(engagement + 1) × 3
+DECAY_HALF_LIFE_DAYS = 7             # Recency decay e^(-age/7)
+
+# Max ZSET sizes
+MAX_SOCIAL_TRENDING_GLOBAL = 100
+MAX_SOCIAL_TRENDING_DOMAIN = 50
+
+# Reddit
+REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID", "")
+REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET", "")
+REDDIT_USER_AGENT = "ScholarShorts/1.0"
+
+# Subreddits per domain
+REDDIT_SUBREDDITS: dict[str, list[str]] = {
+    "cs": ["compsci", "programming", "netsec"],
+    "ds-ai": ["MachineLearning", "deeplearning", "artificial"],
+    "physics": ["Physics", "QuantumComputing"],
+    "biology": ["biology", "Bioinformatics"],
+    "medicine": ["medicine", "science"],
+    "chemistry": ["chemistry"],
+    "math": ["math", "statistics"],
+    "engineering": ["engineering"],
+    "environmental": ["environment", "climate"],
+    "economics": ["Economics"],
+    "psychology": ["psychology"],
+    "business": ["business"],
+    "sociology": ["sociology"],
+    "political": ["PoliticalScience"],
+    "law": ["law"],
+    "interdisciplinary": ["science", "Scholar"],
+}
+
+# Semantic Scholar (used as Phase 2 fallback resolver)
+SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY", "")

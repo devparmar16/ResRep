@@ -5,13 +5,16 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/bookmark_provider.dart';
 import '../../widgets/short_paper_card.dart';
 import '../../theme/app_theme.dart';
 import '../../models/domain.dart';
 import '../paper_detail_screen.dart';
 import '../search_screen.dart';
+import '../trending_screen.dart';
 import '../profile_screen.dart';
 import '../journals/journals_screen.dart';
+import '../collections/collections_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
         auth.profile!.selectedDomains,
         userId: auth.profile!.id,
       );
+      // Also load bookmark state
+      context.read<BookmarkProvider>().loadUserData(auth.profile!.id);
     }
   }
 
@@ -52,7 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildFeed(),
           const JournalsScreen(),
+          const CollectionsScreen(),
           const SearchScreen(),
+          const TrendingScreen(),
           const ProfileScreen(),
         ],
       ),
@@ -84,8 +91,16 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Journals',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.collections_bookmark_rounded),
+              label: 'Saved',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.search_rounded),
               label: 'Search',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.trending_up_rounded),
+              label: 'Trending',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),

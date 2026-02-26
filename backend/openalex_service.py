@@ -160,6 +160,98 @@ def _reconstruct_abstract(inverted_index: dict | None) -> str | None:
         return None
 
 
+async def resolve_paper_id(identifier: str, id_type: str) -> dict | None:
+    """
+    Resolve a DOI or arXiv ID to an OpenAlex normalised paper dict.
+    Returns None if the paper cannot be found.
+    """
+    client = await _get_client()
+    try:
+        if id_type == "doi":
+            url = f"/works/doi:{identifier}"
+        elif id_type == "arxiv":
+            url = f"/works/https://arxiv.org/abs/{identifier}"
+        else:
+            return None
+
+        params = {"mailto": OPENALEX_MAILTO}
+        resp = await client.get(url, params=params)
+
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+
+        work = resp.json()
+        logger.info(f"Successfully resolved {id_type}:{identifier}")
+        # Detect domain from concepts
+        domain = _detect_domain_from_work(work)
+        return _normalise_work(work, domain)
+
+    except Exception as e:
+        logger.warning(f"Could not resolve {id_type}:{identifier}: {e}")
+        return None
+
+
+def _detect_domain_from_work(work: dict) -> str:
+    """Best-effort domain detection from OpenAlex concept IDs."""
+    from config import CORE_DOMAINS_CONCEPTS
+    concept_id_to_domain = {v: k for k, v in CORE_DOMAINS_CONCEPTS.items()}
+
+    for concept in work.get("concepts", []):
+        cid = concept.get("id", "").replace("https://openalex.org/", "")
+        if cid in concept_id_to_domain:
+            return concept_id_to_domain[cid]
+    return "other"
+
+
+async def resolve_by_title(title: str) -> dict | None:
+    """
+    Search OpenAlex by title and return the best-matching work.
+    Filters to papers from last 3 years for relevance.
+    """
+    from difflib import SequenceMatcher
+    from config import TITLE_SIMILARITY_THRESHOLD
+
+    client = await _get_client()
+    try:
+        params = {
+            "search": title,
+            "per_page": "5",
+            "filter": "from_publication_date:2023-01-01",
+            "mailto": OPENALEX_MAILTO,
+        }
+        resp = await client.get("/works", params=params)
+        resp.raise_for_status()
+
+        results = resp.json().get("results", [])
+        best_match = None
+        best_sim = 0.0
+
+        for work in results:
+            work_title = work.get("title", "")
+            if not work_title:
+                continue
+            similarity = SequenceMatcher(
+                None, title.lower().strip(), work_title.lower().strip()
+            ).ratio()
+            if similarity > best_sim:
+                best_sim = similarity
+                best_match = work
+
+        if best_match and best_sim >= TITLE_SIMILARITY_THRESHOLD:
+            domain = _detect_domain_from_work(best_match)
+            paper = _normalise_work(best_match, domain)
+            logger.info(f"OpenAlex title search match (sim={best_sim:.2f}): {title[:50]}")
+            return paper
+        else:
+            logger.debug(f"OpenAlex title search: no match above threshold for: {title[:50]}")
+            return None
+
+    except Exception as e:
+        logger.warning(f"OpenAlex title search error: {e}")
+        return None
+
+
 # ── Journals (Sources) ───────────────────────────────────────────────────
 
 async def fetch_journals_by_domain(

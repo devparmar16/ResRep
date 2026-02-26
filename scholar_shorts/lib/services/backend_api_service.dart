@@ -152,6 +152,44 @@ class BackendApiService {
     }
   }
 
+  // ─── Social Trending ─────────────────────────────────
+
+  /// Fetch socially trending papers, optionally filtered by domain.
+  Future<List<TrendingPaper>> fetchSocialTrending({
+    String? domain,
+    int limit = 30,
+  }) async {
+    final path = domain != null && domain.isNotEmpty
+        ? '/social-trending/$domain'
+        : '/social-trending';
+
+    final queryParams = {'limit': limit.toString()};
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path')
+        .replace(queryParameters: queryParams);
+
+    print('BackendApiService: GET $uri');
+    final response = await _client
+        .get(uri)
+        .timeout(ApiConfig.receiveTimeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('Social Trending API Error ${response.statusCode}: ${response.body}');
+    }
+
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    final papersList = data['papers'] as List<dynamic>? ?? [];
+    return papersList.map((p) {
+      final map = p as Map<String, dynamic>;
+      final paper = _paperFromBackend(map);
+      final sources = (map['trending_sources'] as List<dynamic>?)
+              ?.map((s) => s.toString())
+              .toList() ??
+          [];
+      final socialScore = (map['social_score'] as num?)?.toDouble() ?? 0.0;
+      return TrendingPaper(paper: paper, trendingSources: sources, socialScore: socialScore);
+    }).toList();
+  }
+
   // ─── Helpers ──────────────────────────────────────────
 
   /// Convert backend JSON response to Paper model.
@@ -184,4 +222,18 @@ class BackendApiService {
   void dispose() {
     _client.close();
   }
+}
+
+
+/// A paper with social trending metadata.
+class TrendingPaper {
+  final Paper paper;
+  final List<String> trendingSources;
+  final double socialScore;
+
+  const TrendingPaper({
+    required this.paper,
+    this.trendingSources = const [],
+    this.socialScore = 0.0,
+  });
 }

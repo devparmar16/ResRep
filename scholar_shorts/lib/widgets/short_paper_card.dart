@@ -2,9 +2,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/paper.dart';
 import '../models/domain.dart';
+import '../providers/bookmark_provider.dart';
 import '../theme/app_theme.dart';
+import 'save_to_collection_sheet.dart';
 
 class ShortPaperCard extends StatefulWidget {
   final Paper paper;
@@ -136,14 +140,14 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
 
             const SizedBox(height: 12),
 
-            // Title
+            // Title — allow more lines so long titles are fully visible
             Text(
               paper.title,
               style: GoogleFonts.outfit(
-                fontSize: 22,
+                fontSize: 19,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary,
-                height: 1.25,
+                height: 1.3,
                 shadows: [
                   Shadow(
                     color: Colors.black.withValues(alpha: 0.5),
@@ -152,7 +156,7 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
                   ),
                 ],
               ),
-              maxLines: 3,
+              maxLines: 5,
               overflow: TextOverflow.ellipsis,
             ).animate().fadeIn(delay: 100.ms, duration: 600.ms).slideY(begin: 0.1),
 
@@ -208,22 +212,31 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
       bottom: 120,
       child: Column(
         children: [
-          _SidebarAction(
-            icon: Icons.favorite_rounded,
-            label: '1.2k',
-            color: Colors.redAccent,
+          // ── Bookmark action ──
+          Consumer<BookmarkProvider>(
+            builder: (context, bm, _) {
+              final isSaved = bm.isBookmarked(paper.paperId);
+              return GestureDetector(
+                onTap: () => SaveToCollectionSheet.show(context, paper),
+                child: _SidebarAction(
+                  icon: isSaved
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
+                  label: isSaved ? 'Saved' : 'Save',
+                  color: isSaved ? AppTheme.accentTeal : AppTheme.accentTeal,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 24),
-          _SidebarAction(
-            icon: Icons.bookmark_rounded,
-            label: 'Save',
-            color: AppTheme.accentTeal,
-          ),
-          const SizedBox(height: 24),
-          _SidebarAction(
-            icon: Icons.share_rounded,
-            label: 'Share',
-            color: AppTheme.accentSapphire,
+          // ── Share action ──
+          GestureDetector(
+            onTap: () => _sharePaper(paper),
+            child: _SidebarAction(
+              icon: Icons.share_rounded,
+              label: 'Share',
+              color: AppTheme.accentSapphire,
+            ),
           ),
           const SizedBox(height: 24),
           GestureDetector(
@@ -249,6 +262,17 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
         ],
       ),
     ).animate().fadeIn(delay: 600.ms).slideX(begin: 0.5);
+  }
+
+  void _sharePaper(Paper paper) {
+    final url = paper.url ?? paper.openAccessPdfUrl ?? '';
+    final doi = paper.doi != null ? 'DOI: ${paper.doi}' : '';
+    final text = '${paper.title}\n\n'
+        '${paper.authors.take(3).join(", ")}${paper.authors.length > 3 ? " et al." : ""}\n'
+        '${doi.isNotEmpty ? '$doi\n' : ''}'
+        '${url.isNotEmpty ? url : ''}\n\n'
+        'Shared via Scholar Shorts';
+    SharePlus.instance.share(ShareParams(text: text));
   }
 
   Widget _buildNavigationHints() {

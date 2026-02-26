@@ -42,3 +42,15 @@ class FeedResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     redis: str
+
+
+class SocialTrendingPaper(PaperResponse):
+    trending_sources: list[str] = []
+    social_score: float = 0.0
+    confidence: float = 0.0
+
+
+class SocialTrendingResponse(BaseModel):
+    papers: list[SocialTrendingPaper]
+    total: int
+    domain: str | None = None
