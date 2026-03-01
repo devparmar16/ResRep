@@ -14,14 +14,15 @@ class ConferenceProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
+  int _nextOffset = 0;
 
   // Filters
-  String? _modeFilter; // online, offline, hybrid
+  String? _modeFilter;
   String? _countryFilter;
+  String? _cityFilter;
   String? _domainFilter;
-  String? _publisherFilter;
 
-  final int _pageSize = 50;
+  static const int _pageSize = 25;
 
   // ─── Getters ────────────────────────────────────────
   List<Conference> get conferences => List.unmodifiable(_conferences);
@@ -33,28 +34,38 @@ class ConferenceProvider extends ChangeNotifier {
 
   String? get modeFilter => _modeFilter;
   String? get countryFilter => _countryFilter;
+  String? get cityFilter => _cityFilter;
   String? get domainFilter => _domainFilter;
-  String? get publisherFilter => _publisherFilter;
+  bool get hasActiveFilters =>
+      _modeFilter != null ||
+      _countryFilter != null ||
+      _cityFilter != null ||
+      _domainFilter != null;
 
   // ─── Actions ────────────────────────────────────────
 
   /// Fetch initial list of conferences with current filters.
-  Future<void> loadConferences() async {
+  Future<void> loadConferences({bool ignoreCache = false}) async {
     _isLoading = true;
     _error = null;
     _hasMore = true;
+    _nextOffset = 0;
+    _conferences = [];
     notifyListeners();
 
     try {
-      _conferences = await _api.fetchConferences(
+      final result = await _api.fetchConferences(
         mode: _modeFilter,
         country: _countryFilter,
+        city: _cityFilter,
         domain: _domainFilter,
-        publisher: _publisherFilter,
         limit: _pageSize,
-        skip: 0,
+        offset: 0,
+        ignoreCache: ignoreCache,
       );
-      if (_conferences.length < _pageSize) _hasMore = false;
+      _conferences = result.conferences;
+      _hasMore = result.hasMore;
+      _nextOffset = result.nextOffset;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -63,27 +74,26 @@ class ConferenceProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetch next page of conferences.
+  /// Fetch next page of conferences (offset-based).
   Future<void> loadMore() async {
     if (_isLoading || _isLoadingMore || !_hasMore) return;
     _isLoadingMore = true;
     notifyListeners();
 
     try {
-      final newItems = await _api.fetchConferences(
+      final result = await _api.fetchConferences(
         mode: _modeFilter,
         country: _countryFilter,
+        city: _cityFilter,
         domain: _domainFilter,
-        publisher: _publisherFilter,
         limit: _pageSize,
-        skip: _conferences.length,
+        offset: _nextOffset,
       );
-      if (newItems.isEmpty || newItems.length < _pageSize) {
-        _hasMore = false;
-      }
-      _conferences.addAll(newItems);
+      _conferences = [..._conferences, ...result.conferences];
+      _hasMore = result.hasMore;
+      _nextOffset = result.nextOffset;
     } catch (e) {
-      // Background error ignored for UX
+      // Swallow load-more errors for UX
     } finally {
       _isLoadingMore = false;
       notifyListeners();
@@ -92,7 +102,7 @@ class ConferenceProvider extends ChangeNotifier {
 
   /// Pull-to-refresh
   Future<void> refresh() async {
-    await loadConferences();
+    await loadConferences(ignoreCache: true);
   }
 
   // ─── Filter Updates ─────────────────────────────────
@@ -109,23 +119,23 @@ class ConferenceProvider extends ChangeNotifier {
     loadConferences();
   }
 
+  void setCityFilter(String? city) {
+    if (_cityFilter == city) return;
+    _cityFilter = city;
+    loadConferences();
+  }
+
   void setDomainFilter(String? domain) {
     if (_domainFilter == domain) return;
     _domainFilter = domain;
     loadConferences();
   }
 
-  void setPublisherFilter(String? publisher) {
-    if (_publisherFilter == publisher) return;
-    _publisherFilter = publisher;
-    loadConferences();
-  }
-
   void clearFilters() {
     _modeFilter = null;
     _countryFilter = null;
+    _cityFilter = null;
     _domainFilter = null;
-    _publisherFilter = null;
     loadConferences();
   }
 }

@@ -272,23 +272,26 @@ class BackendApiService {
 
   // ─── Conferences ─────────────────────────────────────
 
-  /// Fetch live conferences from PredictHQ.
-  Future<List<Conference>> fetchConferences({
+  /// Fetch conferences with offset-based pagination.
+  /// Returns a record of (conferences, hasMore, nextOffset).
+  Future<({List<Conference> conferences, bool hasMore, int nextOffset})> fetchConferences({
     String? mode,
     String? country,
+    String? city,
     String? domain,
-    String? publisher,
-    int limit = 50,
-    int skip = 0,
+    int limit = 25,
+    int offset = 0,
+    bool ignoreCache = false,
   }) async {
-    final queryParams = {
+    final queryParams = <String, String>{
       'limit': limit.toString(),
-      'skip': skip.toString(),
+      'offset': offset.toString(),
     };
+    if (ignoreCache) queryParams['ignore_cache'] = 'true';
     if (mode != null && mode.isNotEmpty) queryParams['mode'] = mode;
     if (country != null && country.isNotEmpty) queryParams['country'] = country;
+    if (city != null && city.isNotEmpty) queryParams['city'] = city;
     if (domain != null && domain.isNotEmpty) queryParams['domain'] = domain;
-    if (publisher != null && publisher.isNotEmpty) queryParams['publisher'] = publisher;
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/conferences')
         .replace(queryParameters: queryParams);
@@ -304,7 +307,11 @@ class BackendApiService {
 
     final data = json.decode(response.body) as Map<String, dynamic>;
     final confList = data['conferences'] as List<dynamic>? ?? [];
-    return confList.map((c) => Conference.fromJson(c as Map<String, dynamic>)).toList();
+    final hasMore = data['has_more'] as bool? ?? false;
+    final nextOffset = data['next_offset'] as int? ?? offset + limit;
+    final conferences = confList.map((c) => Conference.fromJson(c as Map<String, dynamic>)).toList();
+
+    return (conferences: conferences, hasMore: hasMore, nextOffset: nextOffset);
   }
 
   // ─── Helpers ──────────────────────────────────────────
