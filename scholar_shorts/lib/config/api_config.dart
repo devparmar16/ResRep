@@ -12,7 +12,7 @@ class ApiConfig {
     if (kIsWeb) return 'http://localhost:8000';
     // Android emulator needs 10.0.2.2 to reach host's localhost
     // For physical device, using local IP address
-    return 'http://192.168.0.105:8000';
+    return 'http://192.168.0.104:8000';
   }
 
   // Timeouts

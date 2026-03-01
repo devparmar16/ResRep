@@ -7,7 +7,7 @@ import '../../theme/app_theme.dart';
 import 'journal_papers_screen.dart';
 import '../../widgets/glass_card.dart';
 
-/// Lists journals for a selected domain, with domain filter chips.
+/// Lists journals for selected domains, with domain filter chips, publisher filter, and search.
 class JournalsScreen extends StatefulWidget {
   const JournalsScreen({super.key});
 
@@ -26,7 +26,7 @@ class _JournalsScreenState extends State<JournalsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<JournalProvider>();
       if (provider.journals.isEmpty) {
-        provider.loadJournals(provider.selectedDomain);
+        provider.loadJournals();
       }
     });
   }
@@ -65,29 +65,60 @@ class _JournalsScreenState extends State<JournalsScreen> {
             ),
           ),
 
-          // ── Domain Filter Chips ──
+          // ── Domain Filter Chips (multi-select + "All") ──
           SizedBox(
             height: 48,
             child: Consumer<JournalProvider>(
               builder: (context, provider, _) {
+                final allDomains = DomainInfo.selectableDomains;
                 return ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: DomainInfo.selectableDomains.length,
+                  itemCount: allDomains.length + 1, // +1 for "All"
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
-                    final domain = DomainInfo.selectableDomains[index];
-                    final isSelected = domain.id == provider.selectedDomain;
-                    return ChoiceChip(
+                    if (index == 0) {
+                      // "All" chip
+                      final isSelected = provider.isAllSelected;
+                      return ChoiceChip(
+                        label: const Text('📚 All'),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          _searchController.clear();
+                          provider.searchJournals('');
+                          provider.selectAll();
+                        },
+                        selectedColor: AppTheme.accent.withOpacity(0.3),
+                        backgroundColor: AppTheme.surfaceVariant,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.textDim,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          fontSize: 13,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppTheme.accent.withOpacity(0.5)
+                                : AppTheme.glassBorder,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final domain = allDomains[index - 1];
+                    final isSelected = provider.selectedDomains.contains(domain.id);
+                    return FilterChip(
                       label: Text('${domain.icon} ${domain.label}'),
                       selected: isSelected,
                       onSelected: (_) {
                         _searchController.clear();
                         provider.searchJournals('');
-                        provider.selectDomain(domain.id);
+                        provider.toggleDomain(domain.id);
                       },
                       selectedColor: domain.color.withOpacity(0.3),
                       backgroundColor: AppTheme.surfaceVariant,
+                      checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.white : AppTheme.textDim,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
@@ -108,7 +139,74 @@ class _JournalsScreenState extends State<JournalsScreen> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // ── Publisher Filter Chips ──
+          Consumer<JournalProvider>(
+            builder: (context, provider, _) {
+              final publishers = provider.availablePublishers;
+              if (publishers.isEmpty) return const SizedBox.shrink();
+
+              return SizedBox(
+                height: 36,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: publishers.length + 1, // +1 for "All Publishers"
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      final isSelected = provider.publisherFilter == null;
+                      return ChoiceChip(
+                        label: const Text('All Publishers'),
+                        selected: isSelected,
+                        onSelected: (_) => provider.setPublisherFilter(null),
+                        selectedColor: AppTheme.accentTeal.withOpacity(0.25),
+                        backgroundColor: AppTheme.surfaceVariant,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.textDim,
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: AppTheme.glassBorder),
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }
+                    final pub = publishers[index - 1];
+                    final isSelected = provider.publisherFilter == pub;
+                    return ChoiceChip(
+                      label: Text(pub),
+                      selected: isSelected,
+                      onSelected: (_) => provider.setPublisherFilter(isSelected ? null : pub),
+                      selectedColor: AppTheme.accentSapphire.withOpacity(0.25),
+                      backgroundColor: AppTheme.surfaceVariant,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : AppTheme.textDim,
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppTheme.accentSapphire.withOpacity(0.5)
+                              : AppTheme.glassBorder,
+                        ),
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 8),
           
           // ── Search Bar ──
           Padding(
@@ -155,56 +253,86 @@ class _JournalsScreenState extends State<JournalsScreen> {
                 }
 
                 if (provider.error != null) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Error loading journals',
-                          style: TextStyle(color: AppTheme.textDim),
+                  return RefreshIndicator(
+                    color: AppTheme.accent,
+                    backgroundColor: AppTheme.surfaceVariant,
+                    onRefresh: () async {
+                      await provider.loadJournals(null, true);
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Container(
+                        height: MediaQuery.of(context).size.height * 0.5,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Error loading journals',
+                              style: TextStyle(color: AppTheme.textDim),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              provider.error!,
+                              style: const TextStyle(color: Colors.red, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => provider.loadJournals(),
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          provider.error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () =>
-                              provider.loadJournals(provider.selectedDomain),
-                          child: const Text('Retry'),
-                        ),
-                      ],
+                      ),
                     ),
                   );
                 }
 
                 if (provider.journals.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No journals found for this domain.',
-                      style: TextStyle(color: AppTheme.textDim),
+                  return RefreshIndicator(
+                    color: AppTheme.accent,
+                    backgroundColor: AppTheme.surfaceVariant,
+                    onRefresh: () async {
+                      await provider.loadJournals(null, true);
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Container(
+                        height: MediaQuery.of(context).size.height * 0.5,
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'No journals found.',
+                          style: TextStyle(color: AppTheme.textDim),
+                        ),
+                      ),
                     ),
                   );
                 }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: provider.journals.length + (provider.hasMoreJournals ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == provider.journals.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: CircularProgressIndicator(color: AppTheme.accent),
-                        ),
-                      );
-                    }
+                return RefreshIndicator(
+                  color: AppTheme.accent,
+                  backgroundColor: AppTheme.surfaceVariant,
+                  onRefresh: () async {
+                    await provider.loadJournals(null, true);
+                  },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: provider.journals.length + (provider.hasMoreJournals ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == provider.journals.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: CircularProgressIndicator(color: AppTheme.accent),
+                          ),
+                        );
+                      }
 
                     final journal = provider.journals[index];
-                    final domainInfo = DomainInfo.getById(provider.selectedDomain);
+                    final domainInfo = DomainInfo.getById(journal.domain);
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -242,12 +370,28 @@ class _JournalsScreenState extends State<JournalsScreen> {
                           ),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              '${_formatCount(journal.paperCount)} papers',
-                              style: const TextStyle(
-                                color: AppTheme.textDim,
-                                fontSize: 12,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (journal.publisher?.isNotEmpty == true)
+                                  Text(
+                                    '🏛 ${journal.publisher}',
+                                    style: TextStyle(
+                                      color: AppTheme.accentTeal.withOpacity(0.8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                Text(
+                                  '${_formatCount(journal.paperCount)} papers',
+                                  style: const TextStyle(
+                                    color: AppTheme.textDim,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           trailing: Icon(
@@ -269,10 +413,11 @@ class _JournalsScreenState extends State<JournalsScreen> {
                       ),
                     );
                   },
-                );
-              },
-            ),
-          ),
+                ), // end ListView.builder
+              ); // end RefreshIndicator
+            }, // end Consumer builder
+          ), // end Consumer
+          ), // end Expanded
         ],
       ),
     );

@@ -15,6 +15,7 @@ import '../trending_screen.dart';
 import '../profile_screen.dart';
 import '../journals/journals_screen.dart';
 import '../collections/collections_screen.dart';
+import '../conferences/conferences_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const CollectionsScreen(),
           const SearchScreen(),
           const TrendingScreen(),
+          const ConferencesScreen(),
           const ProfileScreen(),
         ],
       ),
@@ -73,7 +75,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          onTap: (index) {
+            if (_currentIndex == 0 && index == 0) {
+              if (_pageController.hasClients) {
+                _pageController.animateToPage(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              }
+            }
+            setState(() => _currentIndex = index);
+          },
           backgroundColor: Colors.transparent,
           elevation: 0,
           selectedItemColor: AppTheme.accentTeal,
@@ -103,6 +116,10 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Trending',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.event_note_rounded),
+              label: 'Events',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
               label: 'Profile',
             ),
@@ -113,14 +130,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeed() {
-    return Consumer<FeedProvider>(
-      builder: (context, feed, _) {
-        final auth = context.read<AuthProvider>();
+    return Consumer2<AuthProvider, FeedProvider>(
+      builder: (context, auth, feed, _) {
         final domains = auth.profile?.selectedDomains ?? [];
+        
+        // Auto-initialize if auth loaded but feed hasn't
+        if (auth.profile != null && !feed.hasContent && !feed.isLoadingInitial && feed.error == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            feed.initialize(domains, userId: auth.profile!.id);
+            context.read<BookmarkProvider>().loadUserData(auth.profile!.id);
+          });
+        }
 
         return Stack(
           children: [
-            _buildFeedContent(feed),
+            _buildFeedContent(feed, auth),
             
             // Premium Floating Navigation Overlay
             Positioned(
@@ -147,11 +171,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: ['for-you', 'trending', 'latest'].map((id) {
                             final label = id == 'for-you' ? 'For You' : id[0].toUpperCase() + id.substring(1);
                             final filterId = id == 'for-you' ? null : id;
-                            final isSelected = feed.activeFilterDomainId == filterId;
+                            final isSelected = filterId == null
+                                ? feed.activeFilterDomainIds.isEmpty
+                                : feed.activeFilterDomainIds.contains(filterId);
                             
                             return GestureDetector(
                               onTap: () {
-                                feed.setActiveFilterDomain(filterId);
+                                if (filterId == null) {
+                                  feed.setActiveFilterDomain(null); // Reset to For You
+                                } else {
+                                  feed.toggleFilterDomain(filterId);
+                                }
                                 if (_pageController.hasClients) {
                                   _pageController.jumpToPage(0);
                                 }
@@ -175,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Active Indicator Line
                         _buildActiveIndicator(feed),
 
-                        // Sub-Tier: Interests
+                        // Sub-Tier: Interests (multi-select)
                         if (domains.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           SizedBox(
@@ -188,11 +218,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               itemBuilder: (context, index) {
                                 final domainId = domains[index];
                                 final info = DomainInfo.getById(domainId);
-                                final isSelected = feed.activeFilterDomainId == domainId;
+                                final isSelected = feed.activeFilterDomainIds.contains(domainId);
                                 
                                 return GestureDetector(
                                   onTap: () {
-                                    feed.setActiveFilterDomain(domainId);
+                                    feed.toggleFilterDomain(domainId);
                                     if (_pageController.hasClients) {
                                       _pageController.jumpToPage(0);
                                     }
@@ -246,40 +276,64 @@ class _HomeScreenState extends State<HomeScreen> {
     ).animate().shimmer();
   }
 
-  Widget _buildFeedContent(FeedProvider feed) {
+  Widget _buildFeedContent(FeedProvider feed, AuthProvider auth) {
     if (feed.isLoadingInitial && !feed.hasContent) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
     }
 
     if (feed.error != null && !feed.hasContent) {
-      return Center(
-         child: Column(
-           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
-             Text('Error: ${feed.error}', style: const TextStyle(color: Colors.white)),
-             const SizedBox(height: 16),
-             ElevatedButton(
-               onPressed: () => _initFeed(),
-               child: const Text('Retry'),
-             )
-           ],
-         ),
+      return RefreshIndicator(
+        color: AppTheme.accent,
+        backgroundColor: AppTheme.surfaceVariant,
+        onRefresh: () async {
+          final domains = auth.profile?.selectedDomains ?? [];
+          await feed.refresh(domains);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error: ${feed.error}', style: const TextStyle(color: Colors.white)),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => _initFeed(),
+                  child: const Text('Retry'),
+                )
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     final papers = feed.feedPapers;
 
     if (papers.isEmpty) {
-       return const Center(
-         child: Text(
-           'No papers found for this selection.\nTry changing your interests.',
-           textAlign: TextAlign.center,
-           style: TextStyle(color: Colors.white70),
+       return RefreshIndicator(
+         color: AppTheme.accent,
+         backgroundColor: AppTheme.surfaceVariant,
+         onRefresh: () async {
+           final domains = auth.profile?.selectedDomains ?? [];
+           await feed.refresh(domains);
+         },
+         child: SingleChildScrollView(
+           physics: const AlwaysScrollableScrollPhysics(),
+           child: Container(
+             height: MediaQuery.of(context).size.height * 0.7,
+             alignment: Alignment.center,
+             child: const Text(
+               'No papers found for this selection.\nTry changing your interests.',
+               textAlign: TextAlign.center,
+               style: TextStyle(color: Colors.white70),
+             ),
+           ),
          ),
        );
     }
-
-    final auth = context.read<AuthProvider>();
 
     return RefreshIndicator(
       color: AppTheme.accent,
@@ -300,7 +354,9 @@ class _HomeScreenState extends State<HomeScreen> {
         allowImplicitScrolling: false,
         itemCount: papers.length + (feed.hasMore ? 1 : 0),
         onPageChanged: (index) {
-          if (index >= papers.length - 2) {
+          // Prefetch threshold at 70%
+          final threshold = (papers.length * 0.7).floor();
+          if (index >= threshold) {
             if (!feed.isLoadingMore && feed.hasMore && feed.error == null) {
               feed.loadMore();
             }

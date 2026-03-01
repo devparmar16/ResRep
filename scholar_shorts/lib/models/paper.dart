@@ -22,6 +22,7 @@ class Paper {
 
   final String? tldr; // "Too Long; Didn't Read" summary
   final String? subdomain; // Specific domain tag
+  final String? publisher; // Publisher name (IEEE, Springer, etc.)
 
   Paper({
     required this.paperId,
@@ -43,6 +44,7 @@ class Paper {
     this.landingPageUrl,
     this.pdfUrl,
     this.isOpenAccess = false,
+    this.publisher,
   });
 
   /// Create a Paper from the Semantic Scholar API JSON response.
@@ -85,6 +87,7 @@ class Paper {
       landingPageUrl: json['landing_page_url'] as String?,
       pdfUrl: json['pdf_url'] as String?,
       isOpenAccess: json['is_open_access'] as bool? ?? false,
+      publisher: json['publisher'] as String?,
     );
   }
 
@@ -110,6 +113,7 @@ class Paper {
       landingPageUrl: landingPageUrl,
       pdfUrl: pdfUrl,
       isOpenAccess: isOpenAccess,
+      publisher: publisher,
     );
   }
 }

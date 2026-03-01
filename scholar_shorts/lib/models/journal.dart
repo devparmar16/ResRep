@@ -4,12 +4,14 @@ class Journal {
   final String name;
   final String domain;
   final int paperCount;
+  final String? publisher;
 
   const Journal({
     required this.journalId,
     required this.name,
     required this.domain,
     this.paperCount = 0,
+    this.publisher,
   });
 
   factory Journal.fromJson(Map<String, dynamic> json) {
@@ -18,6 +20,7 @@ class Journal {
       name: json['name'] as String? ?? 'Unknown',
       domain: json['domain'] as String? ?? 'other',
       paperCount: json['paper_count'] as int? ?? 0,
+      publisher: json['publisher'] as String?,
     );
   }
 }

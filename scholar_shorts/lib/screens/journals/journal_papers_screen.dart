@@ -188,69 +188,103 @@ class _JournalPapersScreenState extends State<JournalPapersScreen>
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  itemCount: provider.journalPapers.length,
-                  itemBuilder: (context, index) {
-                    final paper = provider.journalPapers[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: GlassCard(
-                        padding: EdgeInsets.zero,
-                        borderRadius: 16,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(14),
-                          title: Text(
-                            paper.title,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
+                return RefreshIndicator(
+                  color: AppTheme.accent,
+                  backgroundColor: AppTheme.surfaceVariant,
+                  onRefresh: () async {
+                    final sort = _sortOptions[_tabController.index];
+                    await context.read<JournalProvider>().loadJournalPapers(
+                          widget.journalId,
+                          sort: sort,
+                          query: _searchController.text,
+                          ignoreCache: true,
+                        );
+                  },
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (ScrollNotification scrollInfo) {
+                      if (!provider.isLoadingMorePapers &&
+                          provider.hasMorePapers &&
+                          scrollInfo.metrics.pixels >=
+                              scrollInfo.metrics.maxScrollExtent * 0.7) {
+                        provider.loadMoreJournalPapers(widget.journalId);
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      itemCount: provider.journalPapers.length + (provider.isLoadingMorePapers ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == provider.journalPapers.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: CircularProgressIndicator(color: AppTheme.accent),
                             ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                if (paper.year != null)
-                                  _infoChip('${paper.year}'),
-                                _infoChip(
-                                  '${paper.citationCount} citations',
-                                  icon: Icons.format_quote_rounded,
+                          );
+                        }
+
+                        final paper = provider.journalPapers[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: GlassCard(
+                            padding: EdgeInsets.zero,
+                            borderRadius: 16,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(14),
+                              title: Text(
+                                paper.title,
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
                                 ),
-                                if (paper.authors.isNotEmpty)
-                                  Text(
-                                    'By ${paper.authors.first}',
-                                    style: const TextStyle(
-                                      color: AppTheme.textDim,
-                                      fontSize: 11,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    if (paper.year != null)
+                                      _infoChip('${paper.year}'),
+                                    _infoChip(
+                                      '${paper.citationCount} citations',
+                                      icon: Icons.format_quote_rounded,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                              ],
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PaperDetailScreen(
-                                  paper: paper,
-                                  isFromJournalSection: true,
+                                    if (paper.authors.isNotEmpty)
+                                      Text(
+                                        'By ${paper.authors.first}',
+                                        style: const TextStyle(
+                                          color: AppTheme.textDim,
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PaperDetailScreen(
+                                      paper: paper,
+                                      isFromJournalSection: true,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 );
               },
             ),

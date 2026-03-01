@@ -11,6 +11,9 @@ import '../theme/app_theme.dart';
 import 'pdf_view_screen.dart';
 import 'journals/journal_papers_screen.dart';
 import '../widgets/glass_card.dart';
+import 'package:provider/provider.dart';
+import '../providers/bookmark_provider.dart';
+import '../widgets/save_to_collection_sheet.dart';
 
 /// Full-screen detail page for a research paper.
 class PaperDetailScreen extends StatefulWidget {
@@ -143,6 +146,21 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             centerTitle: true,
+            actions: [
+              Consumer<BookmarkProvider>(
+                builder: (context, bm, _) {
+                  final isSaved = bm.isBookmarked(widget.paper.paperId);
+                  return IconButton(
+                    icon: Icon(
+                      isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                      color: isSaved ? AppTheme.accentTeal : Colors.white,
+                    ),
+                    onPressed: () => SaveToCollectionSheet.show(context, widget.paper),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
 
           // ─── Content ─────────────────────────────
@@ -250,6 +268,12 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
                                 : AppTheme.textDim,
                             underline: !widget.isFromJournalSection && widget.paper.journalId != null,
                           ),
+                        ),
+                      if (widget.paper.publisher?.isNotEmpty == true)
+                        _metaChip(
+                          '🏛',
+                          widget.paper.publisher!,
+                          color: AppTheme.accentTeal,
                         ),
                     ],
                   ),

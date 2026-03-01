@@ -20,15 +20,30 @@ class TrendingScreen extends StatefulWidget {
 }
 
 class _TrendingScreenState extends State<TrendingScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<TrendingProvider>();
       if (!provider.hasContent && !provider.isLoading) {
         provider.loadTrending();
       }
     });
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      context.read<TrendingProvider>().loadMore();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -206,9 +221,18 @@ class _TrendingScreenState extends State<TrendingScreen> {
           backgroundColor: AppTheme.surfaceVariant,
           onRefresh: () => provider.refresh(),
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: provider.papers.length,
+            itemCount: provider.papers.length + (provider.isLoadingMore ? 1 : 0),
             itemBuilder: (context, index) {
+              if (index == provider.papers.length) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(color: AppTheme.accentTeal),
+                  ),
+                );
+              }
               final trending = provider.papers[index];
               return _TrendingPaperCard(
                 trending: trending,
@@ -332,7 +356,7 @@ class _TrendingPaperCard extends StatelessWidget {
               if (paper.tldr != null || paper.abstract_ != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  paper.tldr ?? (paper.abstract_ ?? '').substring(0, (paper.abstract_!.length).clamp(0, 150)),
+                  paper.tldr ?? (paper.abstract_ != null ? paper.abstract_!.substring(0, paper.abstract_!.length.clamp(0, 150)) : ''),
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppTheme.textDim,

@@ -55,7 +55,7 @@ class AIPaperService {
     }
 
     final systemPrompt =
-        'You are a research paper explainer. You make complex academic papers accessible to non-experts.';
+        'You are a research paper explainer. You make complex academic papers accessible to non-experts while preserving important technical details.';
 
     final userPrompt = '''Given this paper abstract, provide ALL of the following in the EXACT format shown:
 
@@ -66,7 +66,7 @@ $abstract_
 
 Respond in EXACTLY this format (no extra text):
 
-ELI5: [Rewrite the abstract in very simple English that a 15-year-old can understand. 2-3 sentences max.]
+SUMMARY: [Provide a detailed but to-the-point explanation of the abstract. Explain the core problem, methodology, and results clearly without omitting important technical context. 3-5 sentences.]
 
 TAKEAWAY1: [What did they find or do? One sentence.]
 TAKEAWAY2: [Why does it matter? One sentence.]
@@ -170,11 +170,11 @@ JARGON: [Comma-separated list of 3-6 technical/jargon words from the abstract th
 
   /// Parse the structured insight response.
   PaperInsight _parseInsightResponse(String text) {
-    // Parse ELI5
+    // Parse Summary (or ELI5 for backwards compatibility)
     String eli5 = 'Summary not available.';
-    final eli5Match = RegExp(r'ELI5:\s*(.+?)(?=\nTAKEAWAY1:|\n\n|$)', dotAll: true).firstMatch(text);
-    if (eli5Match != null) {
-      eli5 = eli5Match.group(1)!.trim();
+    final summaryMatch = RegExp(r'(?:SUMMARY|ELI5):\s*(.+?)(?=\nTAKEAWAY1:|\n\n|$)', dotAll: true).firstMatch(text);
+    if (summaryMatch != null) {
+      eli5 = summaryMatch.group(1)!.trim();
     }
 
     // Parse takeaways

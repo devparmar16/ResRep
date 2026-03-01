@@ -288,4 +288,13 @@ class DomainInfo {
   static List<DomainInfo> getByIds(List<String> ids) {
     return ids.map((id) => getById(id)).toList();
   }
+
+  /// Reverse lookup: find the string id for a PaperDomain enum.
+  static String? findIdByDomain(PaperDomain domain) {
+    if (domain == PaperDomain.other) return null;
+    return allDomains.firstWhere(
+      (d) => d.domain == domain,
+      orElse: () => allDomains.last,
+    ).id;
+  }
 }

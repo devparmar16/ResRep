@@ -8,6 +8,8 @@ import '../theme/app_theme.dart';
 import '../services/huggingface_embedding_service.dart';
 import 'onboarding/domain_selection_screen.dart';
 import '../widgets/glass_card.dart';
+import '../providers/bookmark_provider.dart';
+import 'collections/collection_detail_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -167,6 +169,85 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05),
+
+                const SizedBox(height: 40),
+
+                // ── Saved Collections Section ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Saved Collections',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          // Optionally navigate to collections tab or do nothing since it's an inline preview
+                        },
+                        child: const Text('View All', style: TextStyle(color: AppTheme.accentTeal)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Consumer<BookmarkProvider>(
+                  builder: (context, bm, _) {
+                    if (bm.isLoading && bm.collections.isEmpty) {
+                      return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: AppTheme.accentTeal)));
+                    }
+                    if (bm.collections.isEmpty) {
+                      return GlassCard(
+                        padding: const EdgeInsets.all(24),
+                        borderRadius: 16,
+                        child: const Center(
+                          child: Text('No saved collections yet.', style: TextStyle(color: AppTheme.textDim, fontSize: 15)),
+                        ),
+                      );
+                    }
+                    return Column(
+                      children: bm.collections.take(3).map((c) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => CollectionDetailScreen(collection: c)));
+                            },
+                            child: GlassCard(
+                              padding: const EdgeInsets.all(16),
+                              borderRadius: 16,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.accentTeal.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(Icons.bookmark_rounded, color: AppTheme.accentTeal, size: 24),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(c.name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+                                        const SizedBox(height: 4),
+                                        Text('${c.paperCount} papers', style: const TextStyle(color: AppTheme.textDim, fontSize: 13)),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right_rounded, color: AppTheme.textDim),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.05);
+                  },
+                ),
 
                 const SizedBox(height: 40),
 

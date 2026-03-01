@@ -10,6 +10,7 @@ import 'providers/search_provider.dart';
 import 'providers/journal_provider.dart';
 import 'providers/trending_provider.dart';
 import 'providers/bookmark_provider.dart';
+import 'providers/conference_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/auth/profile_completion_screen.dart';
@@ -45,6 +46,7 @@ class ScholarShortsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => JournalProvider()),
         ChangeNotifierProvider(create: (_) => TrendingProvider()),
         ChangeNotifierProvider(create: (_) => BookmarkProvider()),
+        ChangeNotifierProvider(create: (_) => ConferenceProvider()),
       ],
       child: MaterialApp(
         title: 'Scholar Shorts',

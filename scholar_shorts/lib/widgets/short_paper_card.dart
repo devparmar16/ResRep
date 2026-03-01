@@ -138,6 +138,30 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
               ),
             ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1),
 
+            // Publisher Badge (if available)
+            if (paper.publisher?.isNotEmpty == true)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentTeal.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.accentTeal.withValues(alpha: 0.15)),
+                  ),
+                  child: Text(
+                    '🏛 ${paper.publisher}',
+                    style: TextStyle(
+                      color: AppTheme.accentTeal.withValues(alpha: 0.8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+
             const SizedBox(height: 12),
 
             // Title — allow more lines so long titles are fully visible

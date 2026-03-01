@@ -10,39 +10,53 @@ class FeedRepository {
       : _apiService = apiService ?? BackendApiService();
 
   /// Fetch the user's feed snapshot from the backend.
-  Future<List<RankedPaper>> fetchFeed({
-    required String userId,
+  Future<RankedFeedResult> fetchFeed({
     required List<String> domainIds,
+    String? publisher,
+    String sort = 'recent',
+    String cursor = '*',
+    String? userId,
+    bool ignoreCache = false,
   }) async {
-    final papers = await _apiService.fetchFeed(
-      userId: userId,
+    final result = await _apiService.fetchFeed(
       interests: domainIds,
+      publisher: publisher,
+      sort: sort,
+      cursor: cursor,
+      userId: userId,
+      ignoreCache: ignoreCache,
     );
 
-    print('FeedRepository: received ${papers.length} papers from backend');
+    print('FeedRepository: received ${result.papers.length} papers. Cursor: ${result.nextCursor}');
 
     // Wrap in RankedPaper to stay compatible with existing UI
-    return papers.asMap().entries.map((entry) {
+    final rankedPapers = result.papers.asMap().entries.map((entry) {
       // Score = position-based (first = highest)
-      final score = 1.0 - (entry.key / (papers.length.clamp(1, 999)));
+      final score = 1.0 - (entry.key / (result.papers.length.clamp(1, 999)));
       return RankedPaper(paper: entry.value, similarityScore: score);
     }).toList();
+
+    return RankedFeedResult(papers: rankedPapers, nextCursor: result.nextCursor);
   }
 
   /// Force-refresh the feed via backend.
-  Future<List<RankedPaper>> refreshFeed({
-    required String userId,
+  Future<RankedFeedResult> refreshFeed({
     required List<String> domainIds,
+    String? userId,
+    bool ignoreCache = false,
   }) async {
-    final papers = await _apiService.refreshFeed(
-      userId: userId,
+    final result = await _apiService.refreshFeed(
       interests: domainIds,
+      userId: userId,
+      ignoreCache: ignoreCache,
     );
 
-    return papers.asMap().entries.map((entry) {
-      final score = 1.0 - (entry.key / (papers.length.clamp(1, 999)));
+    final rankedPapers = result.papers.asMap().entries.map((entry) {
+      final score = 1.0 - (entry.key / (result.papers.length.clamp(1, 999)));
       return RankedPaper(paper: entry.value, similarityScore: score);
     }).toList();
+
+    return RankedFeedResult(papers: rankedPapers, nextCursor: result.nextCursor);
   }
 
   void clearCaches() {
@@ -59,8 +73,13 @@ class RankedPaper {
   final Paper paper;
   final double similarityScore;
 
-  const RankedPaper({
-    required this.paper,
-    required this.similarityScore,
-  });
+  const RankedPaper({required this.paper, required this.similarityScore});
+}
+
+/// Result object combining papers and a pagination cursor
+class RankedFeedResult {
+  final List<RankedPaper> papers;
+  final String? nextCursor;
+
+  RankedFeedResult({required this.papers, this.nextCursor});
 }
