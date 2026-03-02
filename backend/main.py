@@ -11,9 +11,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import redis_client
 import openalex_service
-from background_jobs import domain_fetch_job, decay_trending_job
+from background_jobs import decay_trending_job
 from social_trending_jobs import social_trending_fetch_job
-from routers import feed, journals, health, engagement, search, social_trending
+from routers import feed, journals, health, engagement, search, social_trending, conferences
 from config import DOMAIN_FETCH_INTERVAL_MINUTES, SOCIAL_FETCH_INTERVAL_HOURS
 
 from fastapi import Request
@@ -44,18 +44,7 @@ async def lifespan(app: FastAPI):
             
     logger.info("Redis connected ✓")
 
-    # Run initial domain fetch
-    logger.info("Running initial domain fetch ...")
-    asyncio.create_task(domain_fetch_job())
 
-    # Schedule recurring fetches
-    scheduler.add_job(
-        domain_fetch_job,
-        "interval",
-        minutes=DOMAIN_FETCH_INTERVAL_MINUTES,
-        id="domain_fetch",
-        replace_existing=True,
-    )
     
     # Run exponential decay independently twice a day
     scheduler.add_job(
@@ -78,7 +67,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(social_trending_fetch_job())
     
     scheduler.start()
-    logger.info(f"Scheduler started: domain fetch every {DOMAIN_FETCH_INTERVAL_MINUTES} min, decay every 12 hours, social trending every {SOCIAL_FETCH_INTERVAL_HOURS} hours.")
+    logger.info(f"Scheduler started: decay every 12 hours, social trending every {SOCIAL_FETCH_INTERVAL_HOURS} hours.")
 
     yield
 
@@ -119,4 +108,5 @@ app.include_router(journals.router)
 app.include_router(engagement.router)
 app.include_router(search.router)
 app.include_router(social_trending.router)
+app.include_router(conferences.router)
 app.include_router(health.router)

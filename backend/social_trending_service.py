@@ -152,7 +152,7 @@ async def fetch_reddit_candidates(domain: str | None = None) -> list[SocialCandi
                 "limit": "50",
                 "restrict_sr": "on",
             }
-            headers = {"User-Agent": REDDIT_USER_AGENT}
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
             resp = await client.get(url, params=params, headers=headers)
             if resp.status_code != 200:
                 logger.warning(f"Reddit r/{sub}: {resp.status_code}")
@@ -165,7 +165,7 @@ async def fetch_reddit_candidates(domain: str | None = None) -> list[SocialCandi
                 engagement = score + comments
 
                 # ── Engagement gate ──
-                if score < REDDIT_MIN_SCORE:
+                if score < 10:
                     continue
 
                 text = f"{pd.get('title', '')} {pd.get('selftext', '')} {pd.get('url', '')}"
@@ -225,10 +225,10 @@ async def fetch_hn_candidates() -> list[SocialCandidate]:
         one_month_ago = int(time.time() - 30 * 24 * 3600)
         url = "https://hn.algolia.com/api/v1/search"
         params = {
-            "query": "arxiv.org OR paper OR preprint OR doi.org",
+            "query": "arxiv.org OR paper OR doi.org",
             "tags": "story",
             "hitsPerPage": "50",
-            "numericFilters": f"points>{HN_MIN_POINTS},created_at_i>{one_month_ago}",
+            "numericFilters": f"points>{10},created_at_i>{one_month_ago}",
         }
         resp = await client.get(url, params=params)
         resp.raise_for_status()

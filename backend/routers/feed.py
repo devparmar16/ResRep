@@ -1,19 +1,13 @@
 """
-Feed router — assembles user feed from domain caches.
+Feed router — assembles user feed using cursor-based pagination.
 """
 import json
 import logging
 from fastapi import APIRouter, Query
 
 import redis_client
-from config import (
-    MAX_USER_FEED,
-    USER_FEED_TTL,
-    papers_per_interest,
-    PAPER_METADATA_TTL,
-)
+from config import PAPER_METADATA_TTL
 from models import PaperResponse, FeedResponse
-from ranking import compute_score
 import openalex_service
 
 logger = logging.getLogger("feed")
@@ -22,164 +16,95 @@ router = APIRouter(prefix="/feed", tags=["Feed"])
 
 @router.get("", response_model=FeedResponse)
 async def get_feed(
-    user_id: str = Query(..., description="User identifier"),
-    interests: str = Query(..., description="Comma-separated domain IDs, e.g. 'ai-ml,cloud'"),
+    interests: str = Query("all", description="Comma-separated domain IDs, e.g. 'cs,biology', or 'all'"),
+    publisher: str | None = Query(None, description="Optional publisher filter"),
+    sort: str = Query("recent", description="Sort order: recent, trending, relevance"),
+    cursor: str = Query("*", description="Pagination cursor"),
+    user_id: str | None = Query(None, description="User identifier (optional)"),
+    ignore_cache: bool = Query(False, description="Bypass cache for pull-to-refresh"),
+    query: str | None = Query(None, description="Search term to filter the feed"),
 ):
-    """
-    Build or return a cached feed snapshot for the user.
-
-    1. Check for existing snapshot (feed:user:{user_id})
-    2. If cached and fresh → return it
-    3. Else → pull from domain caches, merge, rank, snapshot, return
-    """
+    logger.info(f"FEED REQUEST: interests={interests} sort={sort} cursor={cursor} query={query} ignore_cache={ignore_cache}")
     r = await redis_client.get_redis()
-    feed_key = f"feed:user:{user_id}"
+    
+    pub_key = publisher or "none"
+    q_key = query or "none"
+    feed_key = f"feed:{interests}:{pub_key}:{sort}:{q_key}:{cursor}"
 
-    # Check cache
-    cached_ids = await r.zrevrange(feed_key, 0, -1)
-    if cached_ids:
-        papers = await _hydrate_papers(cached_ids)
-        return FeedResponse(
-            user_id=user_id, papers=papers, total=len(papers), cached=True
+    # Check cache (TTL 10 mins)
+    cached_data = None
+    if not ignore_cache:
+        cached_data = await r.get(feed_key)
+    if cached_data:
+        try:
+            data = json.loads(cached_data)
+            return FeedResponse(
+                user_id=user_id,
+                papers=data.get("papers", []),
+                total=data.get("total", 0),
+                cached=True,
+                next_cursor=data.get("next_cursor")
+            )
+        except json.JSONDecodeError:
+            pass
+            
+    # Cache miss
+    if ignore_cache and cursor == "*":
+        # Fetch first page to get a next_cursor to advance from
+        first_page, first_next = await openalex_service.fetch_feed_cursor(
+            domain=interests,
+            publisher=publisher,
+            sort=sort,
+            cursor="*",
+            per_page=25,
+            search_query=query,
+        )
+        
+        # Now fetch a second page from the next_cursor to get truly different papers
+        if first_next:
+            second_page, second_next = await openalex_service.fetch_feed_cursor(
+                domain=interests,
+                publisher=publisher,
+                sort=sort,
+                cursor=first_next,
+                per_page=25,
+                search_query=query,
+            )
+        else:
+            second_page, second_next = [], None
+        
+        # Combine both pages and shuffle entirely for a fully fresh feel
+        import random
+        pool = first_page + second_page
+        random.shuffle(pool)
+        raw_papers = pool[:25]  # Cap at 25 total
+        next_cursor = second_next or first_next
+    else:
+        raw_papers, next_cursor = await openalex_service.fetch_feed_cursor(
+            domain=interests,
+            publisher=publisher,
+            sort=sort,
+            cursor=cursor,
+            per_page=25,
+            search_query=query,
         )
 
-    # Build fresh feed
-    domain_ids = [d.strip() for d in interests.split(",") if d.strip()]
-    papers = await _build_feed(r, user_id, domain_ids)
-    return FeedResponse(
-        user_id=user_id, papers=papers, total=len(papers), cached=False
-    )
-
-
-@router.post("/refresh", response_model=FeedResponse)
-async def refresh_feed(
-    user_id: str = Query(...),
-    interests: str = Query(...),
-):
-    """Force-refresh user feed (delete snapshot, rebuild)."""
-    r = await redis_client.get_redis()
-    feed_key = f"feed:user:{user_id}"
-    await r.delete(feed_key)
-
-    domain_ids = [d.strip() for d in interests.split(",") if d.strip()]
-    papers = await _build_feed(r, user_id, domain_ids)
-    return FeedResponse(
-        user_id=user_id, papers=papers, total=len(papers), cached=False
-    )
-
-
-# ── Internal helpers ─────────────────────────────────────────────────────
-
-async def _build_feed(r, user_id: str, domain_ids: list[str]) -> list[PaperResponse]:
-    """Assemble feed from domain caches."""
-    n = len(domain_ids)
-    per_domain = papers_per_interest(n) if n > 0 else 100
-
-    all_scored: list[tuple[str, float]] = []
-
-    for domain_id in domain_ids:
-        cache_key = f"papers:domain:{domain_id}"
-
-        # Check if domain cache exists, if not populate on-the-fly
-        exists = await r.exists(cache_key)
-        if not exists:
-            from config import CORE_DOMAINS_CONCEPTS
-            concept_id = CORE_DOMAINS_CONCEPTS.get(domain_id)
-            if concept_id:
-                await _populate_domain_cache(r, domain_id, concept_id)
-
-        # Get top N paper IDs from domain sorted set
-        paper_ids_scores = await r.zrevrange(cache_key, 0, per_domain - 1, withscores=True)
-        for pid, score in paper_ids_scores:
-            all_scored.append((pid, score))
-
-    # Deduplicate (same paper may appear in multiple domains)
-    seen = set()
-    unique = []
-    for pid, score in all_scored:
-        if pid not in seen:
-            seen.add(pid)
-            unique.append((pid, score))
-
-    # Re-rank and take top N
-    unique.sort(key=lambda x: x[1], reverse=True)
-    top = unique[:MAX_USER_FEED]
-
-    # Store snapshot
-    feed_key = f"feed:user:{user_id}"
-    if top:
-        pipe = r.pipeline()
-        for pid, score in top:
-            pipe.zadd(feed_key, {pid: score})
-        await pipe.execute()
-        await r.expire(feed_key, USER_FEED_TTL)
-
-    # Hydrate
-    papers = await _hydrate_papers([pid for pid, _ in top])
-    logger.info(f"Feed built for user {user_id}: {len(papers)} papers returned (top size: {len(top)})")
-    return papers
-
-
-async def _populate_domain_cache(r, domain_id: str, concept_id: str) -> None:
-    """On-the-fly domain cache population when cache is empty.
-    Applies the custom 4-factor ranking logic using Redis engagement ZSETs.
-    """
-    from config import DOMAIN_CACHE_TTL, MAX_DOMAIN_PAPERS
-    logger.info(f"On-the-fly cache population for domain '{domain_id}'")
-
-    papers = await openalex_service.fetch_papers_by_domain(
-        domain_id=domain_id,
-        concept_id=concept_id,
-        per_page=100,
-    )
-
-    cache_key = f"papers:domain:{domain_id}"
-    for paper in papers:
-        pid = paper["paper_id"]
-        subdomain = paper.get("subdomain", "unknown")
-        
-        # Pull dynamic scores from Redis
-        
-        # 1. Subdomain Engagement (Reads + Clicks + Saves within this subdomain context)
-        subdomain_trending = 0.0
-        if subdomain != "unknown":
-            subdomain_trending = await r.zscore(f"trending:subdomain:{subdomain}", pid) or 0.0
-
-        # General backup trending weight
-        trending_score = await r.zscore("trending:global", pid) or 0.0
-        
-        # 2. Recent Interaction
-        recent_interaction = await r.zscore(f"engagement:click", pid) or 0.0
-        
-        score = compute_score(
-            citation_count=paper.get("citation_count", 0),
-            publication_date=paper.get("publication_date"),
-            core_domain_weight=1.0, # Baseline Core Map
-            subdomain_engagement=subdomain_trending, 
-            recent_interaction=recent_interaction,
-            trending_score=trending_score,
-        )
-        await redis_client.store_paper_metadata(pid, paper, PAPER_METADATA_TTL)
-        await r.zadd(cache_key, {pid: score})
-
-    await redis_client.cap_sorted_set(cache_key, MAX_DOMAIN_PAPERS)
-    await r.expire(cache_key, DOMAIN_CACHE_TTL)
-
-
-async def _hydrate_papers(paper_ids: list[str]) -> list[PaperResponse]:
-    """Load full paper data from Redis hashes."""
     papers = []
-    for pid in paper_ids:
-        meta = await redis_client.get_paper_metadata(pid)
-        if meta:
+    for meta in raw_papers:
+        pid = meta.get("paper_id")
+        if pid:
+            await redis_client.store_paper_metadata(pid, meta, PAPER_METADATA_TTL)
+            
+        try:
             papers.append(PaperResponse(
-                paper_id=meta.get("paper_id", pid),
+                paper_id=pid,
                 title=meta.get("title", "Untitled"),
                 abstract=meta.get("abstract"),
                 summary=meta.get("summary"),
                 authors=meta.get("authors", []) if isinstance(meta.get("authors"), list) else [],
                 journal=meta.get("journal"),
                 journal_id=meta.get("journal_id"),
+                publisher=meta.get("publisher"),
                 doi=meta.get("doi"),
                 landing_page_url=meta.get("landing_page_url"),
                 pdf_url=meta.get("pdf_url"),
@@ -191,4 +116,39 @@ async def _hydrate_papers(paper_ids: list[str]) -> list[PaperResponse]:
                 domain=meta.get("domain", "other"),
                 subdomain=meta.get("subdomain", "unknown"),
             ))
-    return papers
+        except Exception as ve:
+            logger.error(f"Validation error for search paper {pid}: {ve}")
+            
+    # Build response dict for caching
+    response_dict = {
+        "papers": [p.dict() for p in papers],
+        "total": len(papers),
+        "next_cursor": next_cursor,
+    }
+    
+    # Cache with 10 min TTL (600 seconds)
+    await r.setex(feed_key, 600, json.dumps(response_dict))
+
+    return FeedResponse(
+        user_id=user_id,
+        papers=papers,
+        total=len(papers),
+        cached=False,
+        next_cursor=next_cursor,
+    )
+
+
+@router.post("/refresh", response_model=FeedResponse)
+async def refresh_feed(
+    interests: str = Query("all"),
+    user_id: str | None = Query(None),
+):
+    """Fallback refresh clears cache and shuffles."""
+    return await get_feed(
+        interests=interests, 
+        publisher=None,
+        sort="recent",
+        cursor="*", 
+        user_id=user_id, 
+        ignore_cache=True
+    )

@@ -74,18 +74,115 @@ async def fetch_papers_by_domain(
         return []
 
 
-def _normalise_work(work: dict, primary_domain: str = "other") -> dict:
+async def fetch_feed_cursor(
+    domain: str,
+    publisher: str | None,
+    sort: str,
+    cursor: str = "*",
+    per_page: int = 25,
+    search_query: str | None = None,
+) -> tuple[list[dict], str | None]:
+    """
+    Fetch works from OpenAlex using cursor-based pagination.
+    Supports multiple domains, publisher filter, and custom sorting.
+    """
+    from config import CORE_DOMAINS_CONCEPTS
+    client = await _get_client()
+
+    filters = ["type:article"]
+    
+    if domain and domain != "all":
+        domain_list = [d.strip() for d in domain.split(",") if d.strip()]
+        concept_ids = []
+        for d in domain_list:
+            if d in CORE_DOMAINS_CONCEPTS:
+                concept_ids.append(CORE_DOMAINS_CONCEPTS[d])
+        if concept_ids:
+            # Use OR logic for multiple concepts
+            filters.append(f"concepts.id:{'|'.join(concept_ids)}")
+
+    if sort == "trending" or sort == "top":
+        from datetime import date
+        filters.append(f"from_publication_date:{date.today().year - 1}-01-01")
+
+    if publisher:
+        filters.append(f"primary_location.source.host_organization_name.search:{publisher}")
+
+    openalex_sort = "relevance_score:desc"
+    if sort == "recent" or sort == "latest":
+        openalex_sort = "publication_date:desc"
+    elif sort == "trending" or sort == "top" or sort == "cited_by_count:desc":
+        openalex_sort = "cited_by_count:desc"
+    elif sort == "relevance":
+        if search_query:
+            openalex_sort = "relevance_score:desc"
+        else:
+            # Fallback for relevance without keywords
+            openalex_sort = "cited_by_count:desc"
+    else:
+        openalex_sort = sort
+
+    params = {
+        "filter": ",".join(filters),
+        "sort": openalex_sort,
+        "per_page": str(per_page),
+        "cursor": cursor,
+        "mailto": OPENALEX_MAILTO,
+    }
+    if search_query:
+        params["search"] = search_query
+
+    try:
+        resp = await client.get("/works", params=params)
+        if resp.status_code != 200:
+            logger.error(f"OpenAlex API error (status={resp.status_code}): {resp.text}")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=resp.status_code, detail=f"OpenAlex API error: {resp.text}")
+        
+        data = resp.json()
+
+        next_cursor = data.get("meta", {}).get("next_cursor")
+
+        results = []
+        for work in data.get("results", []):
+            try:
+                domain_list = [d.strip() for d in domain.split(",") if d.strip()] if domain and domain != "all" else []
+                results.append(_normalise_work(work, domain_list if domain_list else "other"))
+            except Exception as inner_e:
+                logger.error(f"Error normalising work: {inner_e}")
+                continue
+        return results, next_cursor
+    except Exception as e:
+        logger.error(f"Error fetching cursor feed from OpenAlex: {e}")
+        return [], None
+
+
+def _normalise_work(work: dict, primary_domain: str | list[str] = "other") -> dict:
     """Convert an OpenAlex Work object into our flat, minimal paper dict to save Redis memory."""
-    from config import DOMAIN_SUBDOMAINS
+    from config import DOMAIN_SUBDOMAINS, CORE_DOMAINS_CONCEPTS
     
     title = work.get("title") or "Untitled"
     abstract_text = _reconstruct_abstract(work.get("abstract_inverted_index"))
 
+    # Determine assigned domain
+    assigned_domain = "other"
+    if isinstance(primary_domain, list) and primary_domain:
+        concept_to_domain = {v: k for k, v in CORE_DOMAINS_CONCEPTS.items() if k in primary_domain}
+        for c in work.get("concepts", []):
+            cid = c.get("id", "").split("/")[-1]
+            if cid in concept_to_domain:
+                assigned_domain = concept_to_domain[cid]
+                break
+        if assigned_domain == "other":
+            assigned_domain = primary_domain[0]
+    elif isinstance(primary_domain, str):
+        assigned_domain = primary_domain
+
     # Fallback to text matching for subdomains
     subdomain = "unknown"
-    if primary_domain in DOMAIN_SUBDOMAINS:
+    if assigned_domain in DOMAIN_SUBDOMAINS:
         search_text = f"{title} {abstract_text or ''}".lower()
-        for sub in DOMAIN_SUBDOMAINS[primary_domain]:
+        for sub in DOMAIN_SUBDOMAINS[assigned_domain]:
             if sub.lower() in search_text:
                 subdomain = sub
                 break
@@ -102,6 +199,7 @@ def _normalise_work(work: dict, primary_domain: str = "other") -> dict:
     source_obj = source.get("source") or {}
     journal_name = source_obj.get("display_name")
     journal_id = source_obj.get("id", "").replace("https://openalex.org/", "") if source_obj.get("id") else None
+    publisher = source_obj.get("host_organization_name")
     
     landing_page_url = source.get("landing_page_url")
     pdf_url = source.get("pdf_url")
@@ -140,8 +238,9 @@ def _normalise_work(work: dict, primary_domain: str = "other") -> dict:
         "year": work.get("publication_year"),
         "citation_count": work.get("cited_by_count", 0),
         "openalex_score": work.get("relevance_score", 0.0),
-        "domain": primary_domain,
+        "domain": assigned_domain,
         "subdomain": subdomain,
+        "publisher": publisher,
     }
 
 
@@ -306,6 +405,7 @@ async def fetch_journals_by_domain(
             "journal_id": sid if sid else name.lower().replace(" ", "-"),
             "name": name,
             "paper_count": source.get("works_count", 0),
+            "publisher": source.get("host_organization_name", ""),
         })
     return results_normalised
 
@@ -349,3 +449,45 @@ async def fetch_journal_papers(
     except Exception as e:
         logger.error(f"Error fetching journal papers from OpenAlex: {e}")
         return []
+
+async def fetch_journal_papers_cursor(
+    journal_id: str,
+    sort: str = "top",
+    cursor: str = "*",
+    per_page_count: int = 50,
+    search_query: str = None,
+) -> tuple[list[dict], str | None]:
+    """Fetch papers from a specific journal (source) with cursor pagination."""
+    client = await _get_client()
+
+    sort_map = {
+        "top": "cited_by_count:desc",
+        "recent": "publication_date:desc",
+        "trending": "cited_by_count:desc",
+    }
+    oa_sort = sort_map.get(sort, "cited_by_count:desc")
+
+    source_id = journal_id if journal_id.startswith("S") else f"S{journal_id}"
+    openalex_id = f"https://openalex.org/{source_id}"
+
+    params = {
+        "filter": f"primary_location.source.id:{openalex_id}",
+        "sort": oa_sort,
+        "per_page": str(per_page_count),
+        "cursor": cursor,
+        "mailto": OPENALEX_MAILTO,
+    }
+    
+    if search_query:
+        params["search"] = search_query
+
+    try:
+        resp = await client.get("/works", params=params)
+        resp.raise_for_status()
+        data = resp.json()
+        next_c = data.get("meta", {}).get("next_cursor")
+        return [_normalise_work(w) for w in data.get("results", [])], next_c
+    except Exception as e:
+        logger.error(f"Error fetching journal cursor papers from OpenAlex: {e}")
+        return [], None
+

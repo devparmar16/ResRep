@@ -8,11 +8,11 @@ import os
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # TTLs (seconds)
-DOMAIN_CACHE_TTL = 3600                # 1 hour max (memory safe)
-PAPER_METADATA_TTL = 6 * 3600          # 6 hours max
-USER_FEED_TTL = 7200                   # 2 hours max
-JOURNAL_CACHE_TTL = 24 * 3600          # 24 hours
-SEARCH_CACHE_TTL = 1800                # 30 mins max
+DOMAIN_CACHE_TTL = 72 * 3600           # 3 days (reduces daily API hits)
+PAPER_METADATA_TTL = 72 * 3600         # 3 days
+USER_FEED_TTL = 24 * 3600              # 24 hours
+JOURNAL_CACHE_TTL = 72 * 3600          # 3 days
+SEARCH_CACHE_TTL = 3600                # 1 hour
 
 # Max sorted-set sizes
 MAX_DOMAIN_PAPERS = 100
@@ -40,7 +40,12 @@ TREND_WEIGHT = 0.1
 
 # ── OpenAlex ─────────────────────────────────────────────────────────────
 OPENALEX_BASE_URL = "https://api.openalex.org"
-OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "scholar-shorts@example.com")
+OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "dev@scholarshorts.app")
+
+# ── PredictHQ (Conferences) ──────────────────────────────────────────────
+PREDICTHQ_API_KEY = os.getenv("PREDICTHQ_API_KEY", "jqmFYPUETzmXnJ6HKd024roJj6tOeZ9DBlW7srwj")
+CONFERENCES_CACHE_TTL = 1800           # 30 minutes
+CONFERENCES_PAGE_SIZE = 25             # items per batch
 
 # ── Background Job ───────────────────────────────────────────────────────
 DOMAIN_FETCH_INTERVAL_MINUTES = 30
@@ -108,16 +113,16 @@ DOMAIN_SEARCH_QUERIES: dict[str, str] = {
 }
 
 # ── Social Trending (2-Phase Architecture) ───────────────────────────────
-SOCIAL_FETCH_INTERVAL_HOURS = 3
-SOCIAL_TRENDING_TTL = 3600           # 1 hour for trending ZSETs
-SOCIAL_SOURCES_TTL = 3600            # 1 hour for platform badges
-SOCIAL_METADATA_TTL = 6 * 3600      # 6 hours for paper metadata cache
-RESOLVE_CACHE_TTL = 24 * 3600       # 24 hours for resolution cache
+SOCIAL_FETCH_INTERVAL_HOURS = 12
+SOCIAL_TRENDING_TTL = 24 * 3600      # 24 hours for trending ZSETs
+SOCIAL_SOURCES_TTL = 24 * 3600       # 24 hours for platform badges
+SOCIAL_METADATA_TTL = 72 * 3600     # 3 days for paper metadata cache
+RESOLVE_CACHE_TTL = 7 * 24 * 3600    # 1 week for resolution cache
 
 # Phase 1 — Engagement thresholds (filter noise)
 REDDIT_MIN_SCORE = 15
 HN_MIN_POINTS = 30
-MAX_CANDIDATES_PER_CYCLE = 50       # Only resolve top N per job run
+MAX_CANDIDATES_PER_CYCLE = 200       # Only resolve top N per job run
 
 # Phase 1 — Research keyword filter
 RESEARCH_KEYWORDS = [
