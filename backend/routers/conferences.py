@@ -22,6 +22,9 @@ async def get_conferences(
     country: Optional[str] = Query(None, description="ISO-3166-1 alpha-2 country code"),
     city: Optional[str] = Query(None, description="City name for location filtering"),
     domain: Optional[str] = Query(None, description="Domain like AI, ML, CS"),
+    lat: Optional[float] = Query(None, description="Latitude for nearby search"),
+    lon: Optional[float] = Query(None, description="Longitude for nearby search"),
+    radius_km: int = Query(50, ge=1, le=500, description="Radius in km for nearby search"),
     limit: int = Query(CONFERENCES_PAGE_SIZE, ge=1, le=50),
     offset: int = Query(0, ge=0),
     ignore_cache: bool = Query(False, description="Skip cache and fetch fresh"),
@@ -31,12 +34,16 @@ async def get_conferences(
     Each unique filter+offset combo gets its own cache entry (TTL 30 min).
     """
     # ── 1. Build deterministic cache key ─────────────────
+    # Round lat/lon to 2 decimals (~1km precision) for cache grouping
+    lat_key = f"{lat:.2f}" if lat is not None else ""
+    lon_key = f"{lon:.2f}" if lon is not None else ""
     cache_key = (
-        f"conferences:v7:"
+        f"conferences:v9:"
         f"{(mode or '').lower()}:"
         f"{(country or '').upper()}:"
         f"{(city or '').lower()}:"
         f"{(domain or '').lower()}:"
+        f"{lat_key}:{lon_key}:{radius_km if lat is not None else ''}:"
         f"{offset}"
     )
 
@@ -65,14 +72,30 @@ async def get_conferences(
 
     # ── 3. Cache MISS — query PredictHQ ──────────────────
     logger.info(f"Cache MISS for {cache_key}. Querying PredictHQ.")
-    conferences = await PredictHQService.fetch_conferences(
-        mode=mode,
-        country=country,
-        city=city,
-        domain=domain,
-        limit=limit,
-        offset=offset,
-    )
+    try:
+        conferences = await PredictHQService.fetch_conferences(
+            mode=mode,
+            country=country,
+            city=city,
+            domain=domain,
+            limit=limit,
+            offset=offset,
+            lat=lat,
+            lon=lon,
+            radius_km=radius_km,
+        )
+    except Exception as e:
+        logger.error(f"PredictHQ API error: {e}")
+        return ConferenceResponse(
+            conferences=[],
+            total=0,
+            has_more=False,
+            next_offset=offset,
+            mode_filter=mode,
+            country_filter=country,
+            city_filter=city,
+            domain_filter=domain,
+        )
 
     has_more = len(conferences) >= limit
     next_offset = offset + limit

@@ -1,7 +1,7 @@
+import 'package:flutter/foundation.dart';
 import '../models/paper.dart';
 import '../services/paper_categorizer.dart';
-import '../services/semantic_scholar_service.dart';
-import '../services/huggingface_embedding_service.dart';
+import '../services/backend_api_service.dart';
 
 /// Result class for search operations.
 class SearchResult {
@@ -22,97 +22,69 @@ class SemanticSearchResult {
   });
 }
 
-/// Repository that coordinates fetching + categorizing papers.
+/// Repository that coordinates fetching + categorizing papers via our fast backend.
 class PaperRepository {
-  final SemanticScholarService _service;
-  final HuggingFaceEmbeddingService _embeddingService;
+  final BackendApiService _apiService;
+
+  // Cache last query results to allow client-side pagination over the top 50
+  String _lastQuery = '';
+  List<SemanticSearchResult> _cachedResults = [];
 
   PaperRepository({
-    SemanticScholarService? service,
-    HuggingFaceEmbeddingService? embeddingService,
-  })  : _service = service ?? SemanticScholarService(),
-        _embeddingService =
-            embeddingService ?? HuggingFaceEmbeddingService();
+    BackendApiService? apiService,
+  }) : _apiService = apiService ?? BackendApiService();
 
-  /// Search for papers, categorize them, and return results.
-  Future<SearchResult> searchPapers(String query, {int offset = 0}) async {
-    final data = await _service.fetchPapers(query, offset: offset);
-
-    final total = data['total'] as int? ?? 0;
-    final rawPapers = (data['data'] as List<dynamic>?)
-            ?.map((item) => Paper.fromJson(item as Map<String, dynamic>))
-            .toList() ??
-        [];
-
-    // Categorize each paper into a domain
-    final categorizedPapers = PaperCategorizer.categorizeAll(rawPapers);
-
-    return SearchResult(papers: categorizedPapers, totalResults: total);
-  }
-
-  /// Semantic search: fetch papers, embed query + papers, rank by cosine similarity.
-  /// Uses BAAI/bge-m3 via HuggingFace Inference API.
+  /// Semantic search: proxy to OpenAlex via backend backend search
+  /// Much faster than doing local HuggingFace embeddings.
   Future<List<SemanticSearchResult>> semanticSearch(
     String query, {
     int offset = 0,
     int limit = 10,
+    int? startYear,
+    int? endYear,
+    String? sort,
   }) async {
-    // 0. Debug Log
-    print('PaperRepository: fetching offset=$offset, limit=$limit for query="$query"');
+    final cacheKey = '${query}_${startYear}_${endYear}_$sort';
+    debugPrint('PaperRepository: fetching offset=$offset, limit=$limit for CacheKey="$cacheKey"');
 
-    // 1. Fetch papers from Semantic Scholar API
-    final data = await _service.fetchPapers(
-      query,
-      offset: offset,
-      limit: limit,
+    // Return from memory cache if appending pagination
+    if (cacheKey == _lastQuery && _cachedResults.isNotEmpty && offset > 0) {
+      if (offset >= _cachedResults.length) return [];
+      final end = (offset + limit < _cachedResults.length) ? offset + limit : _cachedResults.length;
+      return _cachedResults.sublist(offset, end);
+    }
+
+    _lastQuery = cacheKey;
+    _cachedResults = [];
+
+    // 1. Fetch from fast proxy (returns top 50)
+    final rawPapers = await _apiService.searchPapers(
+      query: query,
+      startYear: startYear,
+      endYear: endYear,
+      sort: sort,
     );
-
-    final rawPapers = (data['data'] as List<dynamic>?)
-            ?.map((item) => Paper.fromJson(item as Map<String, dynamic>))
-            .toList() ??
-        [];
 
     if (rawPapers.isEmpty) return [];
 
     // 2. Categorize papers
     final papers = PaperCategorizer.categorizeAll(rawPapers);
 
-    // 3. Prepare texts: query + each paper's title+abstract
-    final paperTexts = papers
-        .map((p) => '${p.title} ${p.abstract_ ?? ""}')
-        .toList();
-
-    // 4. Generate embeddings in batch (query + all papers together)
-    final allTexts = [query, ...paperTexts];
-    final allEmbeddings =
-        await _embeddingService.generateBatchEmbeddings(allTexts);
-
-    final queryEmbedding = allEmbeddings[0];
-    final paperEmbeddings = allEmbeddings.sublist(1);
-
-    // 5. Compute cosine similarity and rank
-    final results = <SemanticSearchResult>[];
+    // 3. Map to dummy semantic results (OpenAlex is pre-sorted by relevance)
     for (int i = 0; i < papers.length; i++) {
-      final score = _embeddingService.cosineSimilarity(
-        queryEmbedding,
-        paperEmbeddings[i],
-      );
-      results.add(SemanticSearchResult(
+      _cachedResults.add(SemanticSearchResult(
         paper: papers[i],
-        similarityScore: score,
+        similarityScore: 1.0 - (i * 0.001), // dummy decreasing score to keep ordering
       ));
     }
 
-    // 6. Sort by similarity (highest first)
-    results.sort(
-        (a, b) => b.similarityScore.compareTo(a.similarityScore));
+    if (offset >= _cachedResults.length) return [];
 
-    return results;
+    final end = (offset + limit < _cachedResults.length) ? offset + limit : _cachedResults.length;
+    return _cachedResults.sublist(offset, end);
   }
 
   void dispose() {
-    _service.dispose();
-    _embeddingService.dispose();
+    _apiService.dispose();
   }
 }
-

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/paper.dart';
@@ -41,7 +42,7 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/feed')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: GET $uri');
+    debugPrint('BackendApiService: GET $uri');
     final response = await _client
         .get(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -50,11 +51,11 @@ class BackendApiService {
       throw Exception('Feed API Error ${response.statusCode}: ${response.body}');
     }
 
-    print('BackendApiService: Received ${response.statusCode} for Feed.');
+    debugPrint('BackendApiService: Received ${response.statusCode} for Feed.');
     final data = json.decode(response.body) as Map<String, dynamic>;
     final papersList = data['papers'] as List<dynamic>? ?? [];
     final nextCursor = data['next_cursor'] as String?;
-    print('BackendApiService: Parsed ${papersList.length} papers. Next cursor: $nextCursor');
+    debugPrint('BackendApiService: Parsed ${papersList.length} papers. Next cursor: $nextCursor');
     
     final papers = papersList.map((p) => _paperFromBackend(p as Map<String, dynamic>)).toList();
     return FeedResult(papers: papers, nextCursor: nextCursor);
@@ -75,7 +76,7 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/feed/refresh')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: POST $uri');
+    debugPrint('BackendApiService: POST $uri');
     final response = await _client
         .post(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -90,6 +91,36 @@ class BackendApiService {
     
     final papers = papersList.map((p) => _paperFromBackend(p as Map<String, dynamic>)).toList();
     return FeedResult(papers: papers, nextCursor: nextCursor);
+  }
+
+  // ─── Search ───────────────────────────────────────────
+
+  /// Search for papers through our backend (using fast proxy to OpenAlex)
+  Future<List<Paper>> searchPapers({
+    required String query,
+    int? startYear,
+    int? endYear,
+    String? sort,
+  }) async {
+    final queryParams = <String, String>{'query': query};
+    if (startYear != null) queryParams['start_year'] = startYear.toString();
+    if (endYear != null) queryParams['end_year'] = endYear.toString();
+    if (sort != null) queryParams['sort'] = sort;
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/search')
+        .replace(queryParameters: queryParams);
+
+    debugPrint('BackendApiService: GET $uri');
+    final response = await _client
+        .get(uri)
+        .timeout(ApiConfig.receiveTimeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('Search API Error ${response.statusCode}: ${response.body}');
+    }
+
+    final list = json.decode(response.body) as List<dynamic>;
+    return list.map((p) => _paperFromBackend(p as Map<String, dynamic>)).toList();
   }
 
   // ─── Journals ─────────────────────────────────────────
@@ -111,7 +142,7 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/journals/$domain')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: GET $uri');
+    debugPrint('BackendApiService: GET $uri');
     final response = await _client
         .get(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -142,7 +173,7 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/journals')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: GET $uri');
+    debugPrint('BackendApiService: GET $uri');
     final response = await _client
         .get(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -177,7 +208,7 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/journals/$journalId/papers')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: GET $uri');
+    debugPrint('BackendApiService: GET $uri');
     final response = await _client
         .get(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -213,14 +244,14 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/engagement/track')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: POST $uri');
+    debugPrint('BackendApiService: POST $uri');
     try {
       final response = await _client.post(uri).timeout(ApiConfig.receiveTimeout);
       if (response.statusCode != 200) {
-        print('Warning: Engagement tracking failed ${response.statusCode}: ${response.body}');
+        debugPrint('Warning: Engagement tracking failed ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      print('Warning: Engagement tracking error: $e');
+      debugPrint('Warning: Engagement tracking error: $e');
     }
   }
 
@@ -245,7 +276,7 @@ class BackendApiService {
     final uri = Uri.parse('${ApiConfig.baseUrl}$path')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: GET $uri');
+    debugPrint('BackendApiService: GET $uri');
     final response = await _client
         .get(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -254,10 +285,10 @@ class BackendApiService {
       throw Exception('Social Trending API Error ${response.statusCode}: ${response.body}');
     }
 
-    print('BackendApiService: Received ${response.statusCode} for Social Trending. Body: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
+    debugPrint('BackendApiService: Received ${response.statusCode} for Social Trending.');
     final data = json.decode(response.body) as Map<String, dynamic>;
     final papersList = data['papers'] as List<dynamic>? ?? [];
-    print('BackendApiService: Parsed ${papersList.length} papers for Social Trending');
+    debugPrint('BackendApiService: Parsed ${papersList.length} papers for Social Trending');
     return papersList.map((p) {
       final map = p as Map<String, dynamic>;
       final paper = _paperFromBackend(map);
@@ -282,6 +313,9 @@ class BackendApiService {
     int limit = 25,
     int offset = 0,
     bool ignoreCache = false,
+    double? lat,
+    double? lon,
+    int? radiusKm,
   }) async {
     final queryParams = <String, String>{
       'limit': limit.toString(),
@@ -292,11 +326,14 @@ class BackendApiService {
     if (country != null && country.isNotEmpty) queryParams['country'] = country;
     if (city != null && city.isNotEmpty) queryParams['city'] = city;
     if (domain != null && domain.isNotEmpty) queryParams['domain'] = domain;
+    if (lat != null) queryParams['lat'] = lat.toString();
+    if (lon != null) queryParams['lon'] = lon.toString();
+    if (radiusKm != null) queryParams['radius_km'] = radiusKm.toString();
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/conferences')
         .replace(queryParameters: queryParams);
 
-    print('BackendApiService: GET $uri');
+    debugPrint('BackendApiService: GET $uri');
     final response = await _client
         .get(uri)
         .timeout(ApiConfig.receiveTimeout);
@@ -348,8 +385,8 @@ class BackendApiService {
       };
       return Paper.fromJson(mapped);
     } catch (e) {
-      print('ERROR IN _paperFromBackend: $e');
-      print('JSON: $json');
+      debugPrint('ERROR IN _paperFromBackend: $e');
+      debugPrint('JSON: $json');
       rethrow;
     }
   }

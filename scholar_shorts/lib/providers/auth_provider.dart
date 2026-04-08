@@ -50,12 +50,15 @@ class AuthProvider extends ChangeNotifier {
       _profile?.missingFields ?? {};
 
   // ─── Google OAuth Listener ─────────────────────────────
+  bool _googleAuthInProgress = false;
+
   void _listenToGoogleAuth() {
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen(
       (data) async {
         if (data.event == AuthChangeEvent.signedIn) {
           final user = data.session?.user;
-          if (user != null && _profile == null) {
+          if (user != null && _profile == null && !_googleAuthInProgress) {
+            _googleAuthInProgress = true;
             // Google OAuth signed in — load or create profile in login table
             try {
               var profile = await _authRepo.getProfile(user.id);
@@ -76,6 +79,8 @@ class AuthProvider extends ChangeNotifier {
             } catch (e) {
               _error = _parseError(e);
               notifyListeners();
+            } finally {
+              _googleAuthInProgress = false;
             }
           }
         }

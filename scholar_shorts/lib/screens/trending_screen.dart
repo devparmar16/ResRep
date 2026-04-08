@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +8,7 @@ import '../providers/trending_provider.dart';
 import '../services/backend_api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/loading_shimmer.dart';
 import 'paper_detail_screen.dart';
 
 /// Full-screen socially trending papers feed.
@@ -175,8 +175,9 @@ class _TrendingScreenState extends State<TrendingScreen> {
     return Consumer<TrendingProvider>(
       builder: (context, provider, _) {
         if (provider.isLoading && !provider.hasContent) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppTheme.accentTeal),
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: LoadingShimmer(itemCount: 4),
           );
         }
 

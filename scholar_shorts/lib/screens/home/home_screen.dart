@@ -14,8 +14,8 @@ import '../search_screen.dart';
 import '../trending_screen.dart';
 import '../profile_screen.dart';
 import '../journals/journals_screen.dart';
-import '../collections/collections_screen.dart';
 import '../conferences/conferences_screen.dart';
+import '../../widgets/loading_shimmer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
+  bool _feedInitStarted = false;
 
   @override
   void initState() {
@@ -37,9 +38,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _initFeed() {
+    if (_feedInitStarted) return;
     final auth = context.read<AuthProvider>();
     final feed = context.read<FeedProvider>();
     if (auth.profile != null && !feed.hasContent) {
+      _feedInitStarted = true;
       feed.initialize(
         auth.profile!.selectedDomains,
         userId: auth.profile!.id,
@@ -58,7 +61,6 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildFeed(),
           const JournalsScreen(),
-          const CollectionsScreen(),
           const SearchScreen(),
           const TrendingScreen(),
           const ConferencesScreen(),
@@ -104,10 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Journals',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.collections_bookmark_rounded),
-              label: 'Saved',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.search_rounded),
               label: 'Search',
             ),
@@ -134,8 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, auth, feed, _) {
         final domains = auth.profile?.selectedDomains ?? [];
         
-        // Auto-initialize if auth loaded but feed hasn't
-        if (auth.profile != null && !feed.hasContent && !feed.isLoadingInitial && feed.error == null) {
+        // Auto-initialize if auth loaded but feed hasn't (guarded)
+        if (!_feedInitStarted && auth.profile != null && !feed.hasContent && !feed.isLoadingInitial && feed.error == null) {
+          _feedInitStarted = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             feed.initialize(domains, userId: auth.profile!.id);
             context.read<BookmarkProvider>().loadUserData(auth.profile!.id);
@@ -146,113 +145,115 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildFeedContent(feed, auth),
             
-            // Premium Floating Navigation Overlay
+            // Premium Floating Navigation Overlay — isolated for scroll perf
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 20,
               right: 20,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Main Tabs: For You | Trending | Latest
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: ['for-you', 'trending', 'latest'].map((id) {
-                            final label = id == 'for-you' ? 'For You' : id[0].toUpperCase() + id.substring(1);
-                            final filterId = id == 'for-you' ? null : id;
-                            final isSelected = filterId == null
-                                ? feed.activeFilterDomainIds.isEmpty
-                                : feed.activeFilterDomainIds.contains(filterId);
-                            
-                            return GestureDetector(
-                              onTap: () {
-                                if (filterId == null) {
-                                  feed.setActiveFilterDomain(null); // Reset to For You
-                                } else {
-                                  feed.toggleFilterDomain(filterId);
-                                }
-                                if (_pageController.hasClients) {
-                                  _pageController.jumpToPage(0);
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                child: Text(
-                                  label,
-                                  style: GoogleFonts.outfit(
-                                    color: isSelected ? Colors.white : Colors.white54,
-                                    fontSize: 14,
-                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                    letterSpacing: 0.5,
+              child: RepaintBoundary(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Main Tabs: For You | Trending | Latest
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: ['for-you', 'trending', 'latest'].map((id) {
+                              final label = id == 'for-you' ? 'For You' : id[0].toUpperCase() + id.substring(1);
+                              final filterId = id == 'for-you' ? null : id;
+                              final isSelected = filterId == null
+                                  ? feed.activeFilterDomainIds.isEmpty
+                                  : feed.activeFilterDomainIds.contains(filterId);
+                              
+                              return GestureDetector(
+                                onTap: () {
+                                  if (filterId == null) {
+                                    feed.setActiveFilterDomain(null); // Reset to For You
+                                  } else {
+                                    feed.toggleFilterDomain(filterId);
+                                  }
+                                  if (_pageController.hasClients) {
+                                    _pageController.jumpToPage(0);
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  child: Text(
+                                    label,
+                                    style: GoogleFonts.outfit(
+                                      color: isSelected ? Colors.white : Colors.white54,
+                                      fontSize: 14,
+                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        
-                        // Active Indicator Line
-                        _buildActiveIndicator(feed),
-
-                        // Sub-Tier: Interests (multi-select)
-                        if (domains.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 32,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              scrollDirection: Axis.horizontal,
-                              itemCount: domains.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final domainId = domains[index];
-                                final info = DomainInfo.getById(domainId);
-                                final isSelected = feed.activeFilterDomainIds.contains(domainId);
-                                
-                                return GestureDetector(
-                                  onTap: () {
-                                    feed.toggleFilterDomain(domainId);
-                                    if (_pageController.hasClients) {
-                                      _pageController.jumpToPage(0);
-                                    }
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: 200.ms,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? info.color.withValues(alpha: 0.2) : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isSelected ? info.color.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '${info.icon} ${info.label}',
-                                      style: GoogleFonts.inter(
-                                        color: isSelected ? Colors.white : Colors.white38,
-                                        fontSize: 11,
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                              );
+                            }).toList(),
                           ),
+                          
+                          // Active Indicator Line — static (no infinite shimmer)
+                          _buildActiveIndicator(feed),
+
+                          // Sub-Tier: Interests (multi-select)
+                          if (domains.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 32,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: domains.length,
+                                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                                itemBuilder: (context, index) {
+                                  final domainId = domains[index];
+                                  final info = DomainInfo.getById(domainId);
+                                  final isSelected = feed.activeFilterDomainIds.contains(domainId);
+                                  
+                                  return GestureDetector(
+                                    onTap: () {
+                                      feed.toggleFilterDomain(domainId);
+                                      if (_pageController.hasClients) {
+                                        _pageController.jumpToPage(0);
+                                      }
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: 200.ms,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? info.color.withValues(alpha: 0.2) : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isSelected ? info.color.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '${info.icon} ${info.label}',
+                                        style: GoogleFonts.inter(
+                                          color: isSelected ? Colors.white : Colors.white38,
+                                          fontSize: 11,
+                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -265,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActiveIndicator(FeedProvider feed) {
-    // Simplified indicator — in a real app, this would be an animated underline
+    // Static gradient indicator — no infinite shimmer to waste frames
     return Container(
       height: 2,
       width: 40,
@@ -273,12 +274,17 @@ class _HomeScreenState extends State<HomeScreen> {
         gradient: AppTheme.auroraGradient,
         borderRadius: BorderRadius.circular(1),
       ),
-    ).animate().shimmer();
+    );
   }
 
   Widget _buildFeedContent(FeedProvider feed, AuthProvider auth) {
     if (feed.isLoadingInitial && !feed.hasContent) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+      return const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(top: 80.0, left: 16.0, right: 16.0),
+          child: LoadingShimmer(itemCount: 3),
+        ),
+      );
     }
 
     if (feed.error != null && !feed.hasContent) {

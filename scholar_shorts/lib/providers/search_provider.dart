@@ -20,8 +20,10 @@ class SearchProvider extends ChangeNotifier {
   int _totalResults = 0;
   String _currentQuery = '';
   int _currentOffset = 0;
+  int? _startYear = DateTime.now().year - 4;
+  int? _endYear;
   PaperDomain? _activeDomain; // null means "all"
-  SortMode _currentSort = SortMode.relevance;
+  SortMode _currentSort = SortMode.year;
   
   // Loading states
   bool _isLoading = false;      // Initial search loading
@@ -33,6 +35,8 @@ class SearchProvider extends ChangeNotifier {
   int get totalResults => _totalResults;
   String get currentQuery => _currentQuery;
   int get currentOffset => _currentOffset;
+  int? get startYear => _startYear;
+  int? get endYear => _endYear;
   PaperDomain? get activeDomain => _activeDomain;
   SortMode get currentSort => _currentSort;
   bool get isLoading => _isLoading;
@@ -107,6 +111,9 @@ class SearchProvider extends ChangeNotifier {
         _currentQuery,
         offset: _currentOffset,
         limit: AppConstants.papersPerPage,
+        startYear: _startYear,
+        endYear: _endYear,
+        sort: _getApiSortString(),
       );
       _semanticResults = results;
       
@@ -141,6 +148,9 @@ class SearchProvider extends ChangeNotifier {
         _currentQuery,
         offset: nextOffset,
         limit: AppConstants.papersPerPage,
+        startYear: _startYear,
+        endYear: _endYear,
+        sort: _getApiSortString(),
       );
 
       if (results.isNotEmpty) {
@@ -171,10 +181,37 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Format the sort string for API
+  String _getApiSortString() {
+    switch (_currentSort) {
+      case SortMode.citations:
+        return 'cited_by_count:desc';
+      case SortMode.year:
+        return 'publication_year:desc';
+      case SortMode.relevance:
+        return 'relevance_score:desc';
+    }
+  }
+
   /// Set the sort mode.
   void setSort(SortMode sort) {
     _currentSort = sort;
-    notifyListeners();
+    if (_currentQuery.isNotEmpty) {
+      search(_currentQuery);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  /// Set the year range filter.
+  void setYearRange(int? start, int? end) {
+    _startYear = start;
+    _endYear = end;
+    if (_currentQuery.isNotEmpty) {
+      search(_currentQuery);
+    } else {
+      notifyListeners();
+    }
   }
 
   @override

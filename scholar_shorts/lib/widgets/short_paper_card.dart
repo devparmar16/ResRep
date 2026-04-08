@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,7 +9,7 @@ import '../providers/bookmark_provider.dart';
 import '../theme/app_theme.dart';
 import 'save_to_collection_sheet.dart';
 
-class ShortPaperCard extends StatefulWidget {
+class ShortPaperCard extends StatelessWidget {
   final Paper paper;
   final VoidCallback onTap;
 
@@ -21,24 +20,17 @@ class ShortPaperCard extends StatefulWidget {
   });
 
   @override
-  State<ShortPaperCard> createState() => _ShortPaperCardState();
-}
-
-class _ShortPaperCardState extends State<ShortPaperCard> {
-
-  @override
   Widget build(BuildContext context) {
-    final paper = widget.paper;
     final domainInfo = DomainInfo.getInfo(paper.domain);
     final color = domainInfo.color;
 
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: onTap,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Dynamic Aurora Background
-          _buildAuroraBackground(color),
+          // 1. Static Aurora Background (no animations — GPU friendly)
+          RepaintBoundary(child: _buildStaticBackground(color)),
           
           // 2. Main Content Overlay (Bottom Anchored)
           _buildBottomDetails(paper, domainInfo),
@@ -53,36 +45,64 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
     );
   }
 
-  Widget _buildAuroraBackground(Color domainColor) {
+  /// Static gradient background — replaces 3 animated _AuroraBlob widgets
+  /// that each ran infinite move+scale animations causing 60fps jank.
+  Widget _buildStaticBackground(Color domainColor) {
     return Stack(
       children: [
         Container(color: AppTheme.background),
-        // Layered blobs with parallax-like animation
+        // Top-left glow
         Positioned(
-          top: -150,
-          left: -100,
-          child: _AuroraBlob(
-            color: domainColor.withValues(alpha: 0.15),
-            size: 400,
-            duration: 8.seconds,
+          top: -100,
+          left: -80,
+          child: Container(
+            width: 350,
+            height: 350,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  domainColor.withValues(alpha: 0.12),
+                  domainColor.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
           ),
         ),
+        // Bottom-right glow
         Positioned(
-          bottom: 100,
-          right: -150,
-          child: _AuroraBlob(
-            color: AppTheme.accentViolet.withValues(alpha: 0.1),
-            size: 500,
-            duration: 12.seconds,
+          bottom: 80,
+          right: -120,
+          child: Container(
+            width: 450,
+            height: 450,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppTheme.accentViolet.withValues(alpha: 0.08),
+                  AppTheme.accentViolet.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
           ),
         ),
+        // Mid-right accent
         Positioned(
-          top: 300,
-          right: 50,
-          child: _AuroraBlob(
-            color: AppTheme.accentTeal.withValues(alpha: 0.08),
-            size: 300,
-            duration: 10.seconds,
+          top: 250,
+          right: 30,
+          child: Container(
+            width: 250,
+            height: 250,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppTheme.accentTeal.withValues(alpha: 0.06),
+                  AppTheme.accentTeal.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -95,7 +115,7 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 60, 80, 40), // More space on right for sidebar
+        padding: const EdgeInsets.fromLTRB(20, 60, 80, 40),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
@@ -136,7 +156,7 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
                   ),
                 ],
               ),
-            ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1),
+            ).animate().fadeIn(duration: 300.ms),
 
             // Publisher Badge (if available)
             if (paper.publisher?.isNotEmpty == true)
@@ -160,11 +180,11 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+              ),
 
             const SizedBox(height: 12),
 
-            // Title — allow more lines so long titles are fully visible
+            // Title
             Text(
               paper.title,
               style: GoogleFonts.outfit(
@@ -182,36 +202,30 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
               ),
               maxLines: 5,
               overflow: TextOverflow.ellipsis,
-            ).animate().fadeIn(delay: 100.ms, duration: 600.ms).slideY(begin: 0.1),
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05),
 
             const SizedBox(height: 12),
 
-            // TL;DR / Summary Box
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                  ),
-                  child: Text(
-                    paper.tldr ?? "No summary available for this paper.",
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: AppTheme.textPrimary.withValues(alpha: 0.9),
-                      height: 1.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+            // TL;DR / Summary Box — NO BackdropFilter (expensive during scroll)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
-            ).animate().fadeIn(delay: 300.ms).scaleXY(begin: 0.95),
+              child: Text(
+                paper.tldr ?? "No summary available for this paper.",
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppTheme.textPrimary.withValues(alpha: 0.9),
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ).animate().fadeIn(delay: 200.ms),
 
             const SizedBox(height: 12),
 
@@ -223,7 +237,7 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
                 color: AppTheme.textDim.withValues(alpha: 0.7),
                 fontWeight: FontWeight.w500,
               ),
-            ).animate().fadeIn(delay: 500.ms),
+            ),
           ],
         ),
       ),
@@ -247,24 +261,26 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
                       ? Icons.bookmark_rounded
                       : Icons.bookmark_border_rounded,
                   label: isSaved ? 'Saved' : 'Save',
-                  color: isSaved ? AppTheme.accentTeal : AppTheme.accentTeal,
+                  color: AppTheme.accentTeal,
                 ),
               );
             },
           ),
           const SizedBox(height: 24),
           // ── Share action ──
-          GestureDetector(
-            onTap: () => _sharePaper(paper),
-            child: _SidebarAction(
-              icon: Icons.share_rounded,
-              label: 'Share',
-              color: AppTheme.accentSapphire,
+          Builder(
+            builder: (context) => GestureDetector(
+              onTap: () => _sharePaper(paper),
+              child: const _SidebarAction(
+                icon: Icons.share_rounded,
+                label: 'Share',
+                color: AppTheme.accentSapphire,
+              ),
             ),
           ),
           const SizedBox(height: 24),
           GestureDetector(
-            onTap: widget.onTap,
+            onTap: onTap,
             child: Container(
               width: 50,
               height: 50,
@@ -281,11 +297,10 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
               ),
               child: const Icon(Icons.description_rounded, color: Colors.white, size: 24),
             ),
-          ).animate(onPlay: (controller) => controller.repeat())
-            .shimmer(duration: 2.seconds, color: Colors.white38),
+          ),
         ],
       ),
-    ).animate().fadeIn(delay: 600.ms).slideX(begin: 0.5);
+    ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.3);
   }
 
   void _sharePaper(Paper paper) {
@@ -317,39 +332,6 @@ class _ShortPaperCardState extends State<ShortPaperCard> {
   }
 }
 
-class _AuroraBlob extends StatelessWidget {
-  final Color color;
-  final double size;
-  final Duration duration;
-
-  const _AuroraBlob({
-    required this.color,
-    required this.size,
-    required this.duration,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        boxShadow: [
-          BoxShadow(
-            color: color,
-            blurRadius: 100,
-            spreadRadius: 20,
-          ),
-        ],
-      ),
-    ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-     .moveY(begin: -20, end: 20, duration: duration, curve: Curves.easeInOutSine)
-     .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: duration, curve: Curves.easeInOutSine);
-  }
-}
-
 class _SidebarAction extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -365,21 +347,15 @@ class _SidebarAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              ),
-              child: Icon(icon, color: Colors.white, size: 26),
-            ),
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
           ),
+          child: Icon(icon, color: Colors.white, size: 26),
         ),
         const SizedBox(height: 6),
         Text(

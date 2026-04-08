@@ -22,6 +22,12 @@ class ConferenceProvider extends ChangeNotifier {
   String? _cityFilter;
   String? _domainFilter;
 
+  // Nearby location filter
+  bool _nearbyActive = false;
+  double? _userLat;
+  double? _userLon;
+  int _radiusKm = 50;
+
   static const int _pageSize = 25;
 
   // ─── Getters ────────────────────────────────────────
@@ -36,11 +42,18 @@ class ConferenceProvider extends ChangeNotifier {
   String? get countryFilter => _countryFilter;
   String? get cityFilter => _cityFilter;
   String? get domainFilter => _domainFilter;
+
+  bool get nearbyActive => _nearbyActive;
+  double? get userLat => _userLat;
+  double? get userLon => _userLon;
+  int get radiusKm => _radiusKm;
+
   bool get hasActiveFilters =>
       _modeFilter != null ||
       _countryFilter != null ||
       _cityFilter != null ||
-      _domainFilter != null;
+      _domainFilter != null ||
+      _nearbyActive;
 
   // ─── Actions ────────────────────────────────────────
 
@@ -62,6 +75,9 @@ class ConferenceProvider extends ChangeNotifier {
         limit: _pageSize,
         offset: 0,
         ignoreCache: ignoreCache,
+        lat: _nearbyActive ? _userLat : null,
+        lon: _nearbyActive ? _userLon : null,
+        radiusKm: _nearbyActive ? _radiusKm : null,
       );
       _conferences = result.conferences;
       _hasMore = result.hasMore;
@@ -88,6 +104,9 @@ class ConferenceProvider extends ChangeNotifier {
         domain: _domainFilter,
         limit: _pageSize,
         offset: _nextOffset,
+        lat: _nearbyActive ? _userLat : null,
+        lon: _nearbyActive ? _userLon : null,
+        radiusKm: _nearbyActive ? _radiusKm : null,
       );
       _conferences = [..._conferences, ...result.conferences];
       _hasMore = result.hasMore;
@@ -131,11 +150,32 @@ class ConferenceProvider extends ChangeNotifier {
     loadConferences();
   }
 
+  /// Enable nearby mode with the user's GPS coordinates.
+  void enableNearby(double lat, double lon, {int radiusKm = 50}) {
+    _nearbyActive = true;
+    _userLat = lat;
+    _userLon = lon;
+    _radiusKm = radiusKm;
+    loadConferences();
+  }
+
+  /// Disable nearby mode.
+  void disableNearby() {
+    if (!_nearbyActive) return;
+    _nearbyActive = false;
+    _userLat = null;
+    _userLon = null;
+    loadConferences();
+  }
+
   void clearFilters() {
     _modeFilter = null;
     _countryFilter = null;
     _cityFilter = null;
     _domainFilter = null;
+    _nearbyActive = false;
+    _userLat = null;
+    _userLon = null;
     loadConferences();
   }
 }

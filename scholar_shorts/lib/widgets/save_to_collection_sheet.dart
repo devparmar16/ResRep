@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/bookmark_provider.dart';
 import '../services/bookmark_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/loading_shimmer.dart';
 
 /// Bottom sheet that shows user's collections and lets them
 /// save/unsave the current paper to any collection.
@@ -145,8 +146,9 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     return Consumer<BookmarkProvider>(
       builder: (context, bm, _) {
         if (_loadingIds || bm.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppTheme.accentTeal),
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: LoadingShimmer(itemCount: 3),
           );
         }
 

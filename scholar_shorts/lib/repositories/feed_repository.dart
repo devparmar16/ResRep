@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/paper.dart';
 import '../services/backend_api_service.dart';
 
@@ -27,7 +28,7 @@ class FeedRepository {
       ignoreCache: ignoreCache,
     );
 
-    print('FeedRepository: received ${result.papers.length} papers. Cursor: ${result.nextCursor}');
+    debugPrint('FeedRepository: received ${result.papers.length} papers. Cursor: ${result.nextCursor}');
 
     // Wrap in RankedPaper to stay compatible with existing UI
     final rankedPapers = result.papers.asMap().entries.map((entry) {

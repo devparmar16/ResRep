@@ -74,45 +74,38 @@ class _SearchScreenState extends State<SearchScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SearchBarWidget(
-                  onSearch: (query) => provider.search(query),
-                  isLoading: provider.isLoading,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: SearchBarWidget(
+                        onSearch: (query) => provider.search(query),
+                        isLoading: provider.isLoading,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.date_range_rounded, 
+                          color: (provider.startYear != null || provider.endYear != null) ? AppTheme.accent : AppTheme.textPrimary
+                        ),
+                        onPressed: () => _showYearFilterDialog(context, provider),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
 
-            // Quick tags
-            if (!provider.hasSearched)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _quickTag('Machine Learning', provider),
-                        _quickTag('Cloud Computing', provider),
-                        _quickTag('Cybersecurity', provider),
-                        _quickTag('Web Development', provider),
-                        _quickTag('Data Science', provider),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
 
-            // Domain filters
-            if (provider.hasSearched && provider.papers.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
-                  child: DomainFilterChips(
-                    counts: provider.domainCounts,
-                    activeDomain: provider.activeDomain,
-                    onDomainSelected: (d) => provider.setDomain(d),
-                  ),
-                ),
-              ),
+
+
 
             // Sort controls
             if (provider.hasSearched && provider.filteredResults.isNotEmpty)
@@ -330,19 +323,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _quickTag(String label, SearchProvider provider) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        label: Text(label, style: const TextStyle(fontSize: 12)),
-        backgroundColor: AppTheme.surface,
-        labelStyle: const TextStyle(color: AppTheme.textPrimary),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        onPressed: () => provider.search(label),
-      ),
-    );
-  }
+
 
   Widget _sortChip(String label, SortMode mode, SearchProvider provider) {
     final isActive = provider.currentSort == mode;
@@ -377,5 +358,95 @@ class _SearchScreenState extends State<SearchScreen> {
     if (score >= 0.75) return const Color(0xFF34D399); // green
     if (score >= 0.50) return const Color(0xFFFBBF24); // amber
     return const Color(0xFFF87171); // red
+  }
+
+  void _showYearFilterDialog(BuildContext context, SearchProvider provider) {
+    int? tempStart = provider.startYear;
+    int? tempEnd = provider.endYear;
+    final currentYear = DateTime.now().year;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.surface,
+              title: const Text('Filter by Year', style: TextStyle(color: Colors.white)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+                       const Text('From', style: TextStyle(color: AppTheme.textDim)),
+                       DropdownButton<int>(
+                         dropdownColor: AppTheme.surface,
+                         value: tempStart,
+                         hint: const Text('Any', style: TextStyle(color: AppTheme.textPrimary)),
+                         items: [
+                           const DropdownMenuItem<int>(value: null, child: Text('Any', style: TextStyle(color: AppTheme.textPrimary))),
+                           for (int y = currentYear; y >= 2000; y--)
+                             DropdownMenuItem<int>(value: y, child: Text(y.toString(), style: const TextStyle(color: AppTheme.textPrimary))),
+                         ],
+                         onChanged: (val) {
+                            setState(() {
+                              tempStart = val;
+                              if (tempEnd != null && tempStart != null && tempEnd! < tempStart!) {
+                                tempEnd = tempStart;
+                              }
+                            });
+                         },
+                       )
+                     ]
+                   ),
+                   const SizedBox(height: 16),
+                   Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+                       const Text('To', style: TextStyle(color: AppTheme.textDim)),
+                       DropdownButton<int>(
+                         dropdownColor: AppTheme.surface,
+                         value: tempEnd,
+                         hint: const Text('Any', style: TextStyle(color: AppTheme.textPrimary)),
+                         items: [
+                           const DropdownMenuItem<int>(value: null, child: Text('Any', style: TextStyle(color: AppTheme.textPrimary))),
+                           for (int y = currentYear; y >= 2000; y--)
+                             DropdownMenuItem<int>(value: y, child: Text(y.toString(), style: const TextStyle(color: AppTheme.textPrimary))),
+                         ],
+                         onChanged: (val) {
+                            setState(() {
+                              tempEnd = val;
+                              if (tempStart != null && tempEnd != null && tempStart! > tempEnd!) {
+                                tempStart = tempEnd;
+                              }
+                            });
+                         },
+                       )
+                     ]
+                   ),
+                ]
+              ),
+              actions: [
+                 TextButton(
+                   onPressed: () {
+                      provider.setYearRange(null, null);
+                      Navigator.pop(context);
+                   },
+                   child: const Text('Clear', style: TextStyle(color: AppTheme.textDim)),
+                 ),
+                 TextButton(
+                   onPressed: () {
+                      provider.setYearRange(tempStart, tempEnd);
+                      Navigator.pop(context);
+                   },
+                   child: const Text('Apply', style: TextStyle(color: AppTheme.accent)),
+                 ),
+              ],
+            );
+          }
+        );
+      }
+    );
   }
 }

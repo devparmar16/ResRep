@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/journal_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/glass_card.dart';
+import '../../widgets/loading_shimmer.dart';
 import '../paper_detail_screen.dart';
 
 /// Shows papers for a specific journal, with Top / Recent / Trending tabs.
@@ -149,8 +150,9 @@ class _JournalPapersScreenState extends State<JournalPapersScreen>
             child: Consumer<JournalProvider>(
               builder: (context, provider, _) {
                 if (provider.isLoadingPapers) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppTheme.accent),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: LoadingShimmer(itemCount: 4),
                   );
                 }
 

@@ -10,14 +10,7 @@ enum PaperDomain {
   biology,
   medicine,
   environmental,
-  economics,
-  psychology,
-  business,
   dsAi,
-  sociology,
-  political,
-  law,
-  interdisciplinary,
   other,
 }
 
@@ -148,109 +141,7 @@ class DomainInfo {
         'Conservation', 'Water Resource Management'
       ],
     ),
-    DomainInfo(
-      domain: PaperDomain.economics,
-      id: 'economics',
-      label: 'Economics',
-      icon: '📈',
-      description: 'Microeconomics, macroeconomics, finance, and econometrics.',
-      color: Color(0xFFEAB308),
-      badgeBg: Color(0x33EAB308),
-      keywords: [
-        'Microeconomics', 'Macroeconomics', 'Econometrics',
-        'Development Economics', 'Financial Economics'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.psychology,
-      id: 'psychology',
-      label: 'Psychology',
-      icon: '🧠',
-      description: 'Cognitive, clinical, behavioral, and social psychology.',
-      color: Color(0xFFEC4899),
-      badgeBg: Color(0x33EC4899),
-      keywords: [
-        'Cognitive Psychology', 'Clinical Psychology',
-        'Behavioral Psychology', 'Social Psychology'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.business,
-      id: 'business',
-      label: 'Business & Management',
-      icon: '🏢',
-      description: 'Finance, marketing, operations, and entrepreneurship.',
-      color: Color(0xFFF59E0B),
-      badgeBg: Color(0x33F59E0B),
-      keywords: [
-        'Finance', 'Marketing', 'Operations Management',
-        'Entrepreneurship', 'Supply Chain Management'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.dsAi,
-      id: 'ds-ai',
-      label: 'Data Science & AI',
-      icon: '🤖',
-      description: 'Deep learning, big data analytics, and generative AI.',
-      color: Color(0xFF7C5CFC),
-      badgeBg: Color(0x337C5CFC),
-      keywords: [
-        'Deep Learning', 'Big Data Analytics', 'Data Engineering',
-        'AI Ethics', 'Generative AI'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.sociology,
-      id: 'sociology',
-      label: 'Sociology',
-      icon: '🏛️',
-      description: 'Social theory, urban studies, gender studies, and social policy.',
-      color: Color(0xFFD946EF),
-      badgeBg: Color(0x33D946EF),
-      keywords: [
-        'Social Theory', 'Urban Studies', 'Gender Studies', 'Social Policy'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.political,
-      id: 'political',
-      label: 'Political Science',
-      icon: '🗳️',
-      description: 'International relations, public policy, and comparative politics.',
-      color: Color(0xFF06B6D4),
-      badgeBg: Color(0x3306B6D4),
-      keywords: [
-        'International Relations', 'Public Policy',
-        'Comparative Politics', 'Governance'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.law,
-      id: 'law',
-      label: 'Law',
-      icon: '⚖️',
-      description: 'Constitutional, criminal, corporate, and intellectual property law.',
-      color: Color(0xFF64748B),
-      badgeBg: Color(0x3364748B),
-      keywords: [
-        'Constitutional Law', 'Criminal Law', 'Corporate Law',
-        'Intellectual Property Law', 'Cyber Law'
-      ],
-    ),
-    DomainInfo(
-      domain: PaperDomain.interdisciplinary,
-      id: 'interdisciplinary',
-      label: 'Interdisciplinary',
-      icon: '🔗',
-      description: 'Bioinformatics, computational biology, and cognitive science.',
-      color: Color(0xFFBE185D),
-      badgeBg: Color(0x33BE185D),
-      keywords: [
-        'Bioinformatics', 'Computational Biology', 'Cognitive Science',
-        'Environmental Economics', 'Digital Humanities'
-      ],
-    ),
+
     DomainInfo(
       domain: PaperDomain.other,
       id: 'other',

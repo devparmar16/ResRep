@@ -3,13 +3,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/conference.dart';
+import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import 'glass_card.dart';
 
 class ConferenceCard extends StatelessWidget {
   final Conference conference;
+  final double? userLat;
+  final double? userLon;
 
-  const ConferenceCard({super.key, required this.conference});
+  const ConferenceCard({
+    super.key,
+    required this.conference,
+    this.userLat,
+    this.userLon,
+  });
 
   Future<void> _launchUrl(String? urlString) async {
     if (urlString == null || urlString.isEmpty) return;
@@ -69,6 +77,34 @@ class ConferenceCard extends StatelessWidget {
               if (conference.locationString.isNotEmpty)
                 _buildInfoRow(Icons.location_on, conference.locationString, Colors.orangeAccent),
 
+              // ── Distance badge (when nearby active) ──
+              if (_distanceKm != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.near_me, size: 14, color: AppTheme.accentTeal.withAlpha(180)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentTeal.withAlpha(25),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.accentTeal.withAlpha(60)),
+                        ),
+                        child: Text(
+                          _distanceLabel,
+                          style: GoogleFonts.inter(
+                            color: AppTheme.accentTeal,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(height: 10),
 
               // ── Bottom row: mode badge + register ──
@@ -76,7 +112,7 @@ class ConferenceCard extends StatelessWidget {
                 children: [
                   _buildModeBadge(),
                   const Spacer(),
-                  if (conference.url != null && conference.url!.isNotEmpty)
+                  if (conference.title.isNotEmpty)
                     _buildRegisterButton()
                   else
                     Text('Tap for details',
@@ -160,8 +196,11 @@ class ConferenceCard extends StatelessWidget {
   }
 
   Widget _buildRegisterButton() {
+    final query = Uri.encodeComponent(conference.title);
+    final searchUrl = 'https://www.google.com/search?q=$query';
+    
     return GestureDetector(
-      onTap: () => _launchUrl(conference.url),
+      onTap: () => _launchUrl(searchUrl),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -175,7 +214,7 @@ class ConferenceCard extends StatelessWidget {
           children: [
             const Icon(Icons.open_in_new, size: 12, color: Colors.white),
             const SizedBox(width: 4),
-            Text('Register',
+            Text('Search Web',
                 style: GoogleFonts.inter(
                     color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
           ],
@@ -221,6 +260,25 @@ class ConferenceCard extends StatelessWidget {
     if (s != null) return df.format(s);
     if (e != null) return 'Ends ${df.format(e)}';
     return '';
+  }
+
+  /// Distance in km from user to the conference, or null if not applicable.
+  double? get _distanceKm {
+    if (userLat == null || userLon == null) return null;
+    if (conference.latitude == null || conference.longitude == null) return null;
+    return LocationService.distanceKm(
+      userLat!, userLon!,
+      conference.latitude!, conference.longitude!,
+    );
+  }
+
+  /// Human-readable distance label.
+  String get _distanceLabel {
+    final d = _distanceKm;
+    if (d == null) return '';
+    if (d < 1) return '${(d * 1000).round()} m away';
+    if (d < 10) return '${d.toStringAsFixed(1)} km away';
+    return '${d.round()} km away';
   }
 
   // ── Detail Bottom Sheet ────────────────────────────────
@@ -366,13 +424,15 @@ class ConferenceCard extends StatelessWidget {
                         ),
                       if (conference.mapsUrl != null && conference.url != null)
                         const SizedBox(width: 12),
-                      // Register button
-                      if (conference.url != null && conference.url!.isNotEmpty)
+                      if (conference.title.isNotEmpty)
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () => _launchUrl(conference.url),
-                            icon: const Icon(Icons.open_in_new, size: 16),
-                            label: const Text('Register / Visit'),
+                            onPressed: () {
+                              final query = Uri.encodeComponent(conference.title);
+                              _launchUrl('https://www.google.com/search?q=$query');
+                            },
+                            icon: const Icon(Icons.search, size: 16),
+                            label: const Text('Search Web'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.accentTeal,
                               foregroundColor: Colors.white,

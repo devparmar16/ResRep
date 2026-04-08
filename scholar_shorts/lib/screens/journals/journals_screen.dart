@@ -6,6 +6,7 @@ import '../../models/domain.dart';
 import '../../theme/app_theme.dart';
 import 'journal_papers_screen.dart';
 import '../../widgets/glass_card.dart';
+import '../../widgets/loading_shimmer.dart';
 
 /// Lists journals for selected domains, with domain filter chips, publisher filter, and search.
 class JournalsScreen extends StatefulWidget {
@@ -247,8 +248,9 @@ class _JournalsScreenState extends State<JournalsScreen> {
             child: Consumer<JournalProvider>(
               builder: (context, provider, _) {
                 if (provider.isLoadingJournals) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppTheme.accent),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: LoadingShimmer(itemCount: 6),
                   );
                 }
 

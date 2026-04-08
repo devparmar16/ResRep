@@ -40,12 +40,13 @@ TREND_WEIGHT = 0.1
 
 # ── OpenAlex ─────────────────────────────────────────────────────────────
 OPENALEX_BASE_URL = "https://api.openalex.org"
-OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "dev@scholarshorts.app")
+OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "dev2026@scholarshorts.app")
 
 # ── PredictHQ (Conferences) ──────────────────────────────────────────────
 PREDICTHQ_API_KEY = os.getenv("PREDICTHQ_API_KEY", "jqmFYPUETzmXnJ6HKd024roJj6tOeZ9DBlW7srwj")
-CONFERENCES_CACHE_TTL = 1800           # 30 minutes
+CONFERENCES_CACHE_TTL = 3600           # 1 hour (conferences change infrequently)
 CONFERENCES_PAGE_SIZE = 25             # items per batch
+FEED_CACHE_TTL = 900                   # 15 minutes (reduces OpenAlex API calls)
 
 # ── Background Job ───────────────────────────────────────────────────────
 DOMAIN_FETCH_INTERVAL_MINUTES = 30
@@ -61,14 +62,7 @@ CORE_DOMAINS_CONCEPTS: dict[str, str] = {
     "biology": "C86803240",
     "medicine": "C71924100",
     "environmental": "C39432304",
-    "economics": "C162324750",
-    "psychology": "C15744967",
-    "business": "C144133560",
     "ds-ai": "C119857082", # Machine Learning concept as proxy setup
-    "sociology": "C144024400",
-    "political": "C17744445",
-    "law": "C199539241",
-    "interdisciplinary": "C130828816",
 }
 
 # Subdomain Keywords for Text-Matching
@@ -81,14 +75,7 @@ DOMAIN_SUBDOMAINS: dict[str, list[str]] = {
     "biology": ["Molecular Biology", "Genetics", "Microbiology", "Biotechnology", "Neuroscience", "Ecology"],
     "medicine": ["Cardiology", "Oncology", "Neurology", "Public Health", "Epidemiology", "Clinical Research"],
     "environmental": ["Climate Science", "Sustainability", "Renewable Energy", "Conservation", "Water Resource Management"],
-    "economics": ["Microeconomics", "Macroeconomics", "Econometrics", "Development Economics", "Financial Economics"],
-    "psychology": ["Cognitive Psychology", "Clinical Psychology", "Behavioral Psychology", "Social Psychology"],
-    "business": ["Finance", "Marketing", "Operations Management", "Entrepreneurship", "Supply Chain Management"],
     "ds-ai": ["Deep Learning", "Big Data Analytics", "Data Engineering", "AI Ethics", "Generative AI"],
-    "sociology": ["Social Theory", "Urban Studies", "Gender Studies", "Social Policy"],
-    "political": ["International Relations", "Public Policy", "Comparative Politics", "Governance"],
-    "law": ["Constitutional Law", "Criminal Law", "Corporate Law", "Intellectual Property Law", "Cyber Law"],
-    "interdisciplinary": ["Bioinformatics", "Computational Biology", "Cognitive Science", "Environmental Economics", "Digital Humanities"],
 }
 
 # ── Domain → OpenAlex search queries ─────────────────────────────────────
@@ -102,14 +89,7 @@ DOMAIN_SEARCH_QUERIES: dict[str, str] = {
     "biology": "Biology",
     "medicine": "Medicine Healthcare",
     "environmental": "Environmental Science",
-    "economics": "Economics",
-    "psychology": "Psychology",
-    "business": "Business Management",
     "ds-ai": "Data Science",
-    "sociology": "Sociology",
-    "political": "Political Science",
-    "law": "Law",
-    "interdisciplinary": "Interdisciplinary Research",
 }
 
 # ── Social Trending (2-Phase Architecture) ───────────────────────────────
@@ -161,13 +141,6 @@ REDDIT_SUBREDDITS: dict[str, list[str]] = {
     "math": ["math", "statistics"],
     "engineering": ["engineering"],
     "environmental": ["environment", "climate"],
-    "economics": ["Economics"],
-    "psychology": ["psychology"],
-    "business": ["business"],
-    "sociology": ["sociology"],
-    "political": ["PoliticalScience"],
-    "law": ["law"],
-    "interdisciplinary": ["science", "Scholar"],
 }
 
 # Semantic Scholar (used as Phase 2 fallback resolver)

@@ -10,9 +10,11 @@ class ApiConfig {
     if (envUrl.isNotEmpty) return envUrl;
     // Web runs in the browser on the same machine as the backend
     if (kIsWeb) return 'http://localhost:8000';
-    // Android emulator needs 10.0.2.2 to reach host's localhost
-    // For physical device, using local IP address
-    return 'http://192.168.0.104:8000';
+
+    // If you are connecting an Android device via USB debugging, the most foolproof
+    // way to connect without Wi-Fi issues is using `adb reverse`. In this case, 
+    // the phone's localhost will seamlessly map to your computer's localhost.
+    return 'http://127.0.0.1:8000';
   }
 
   // Timeouts

@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, Query
 
 import redis_client
-from config import PAPER_METADATA_TTL
+from config import PAPER_METADATA_TTL, FEED_CACHE_TTL
 from models import PaperResponse, FeedResponse
 import openalex_service
 
@@ -89,11 +89,13 @@ async def get_feed(
             search_query=query,
         )
 
+    # Batch store all paper metadata in a single Redis pipeline
+    batch_papers = []
     papers = []
     for meta in raw_papers:
         pid = meta.get("paper_id")
         if pid:
-            await redis_client.store_paper_metadata(pid, meta, PAPER_METADATA_TTL)
+            batch_papers.append((pid, meta))
             
         try:
             papers.append(PaperResponse(
@@ -118,6 +120,10 @@ async def get_feed(
             ))
         except Exception as ve:
             logger.error(f"Validation error for search paper {pid}: {ve}")
+    
+    # Single pipeline round-trip instead of N individual calls
+    if batch_papers:
+        await redis_client.store_papers_batch(batch_papers, PAPER_METADATA_TTL)
             
     # Build response dict for caching
     response_dict = {
@@ -126,8 +132,8 @@ async def get_feed(
         "next_cursor": next_cursor,
     }
     
-    # Cache with 10 min TTL (600 seconds)
-    await r.setex(feed_key, 600, json.dumps(response_dict))
+    # Cache with centralized TTL
+    await r.setex(feed_key, FEED_CACHE_TTL, json.dumps(response_dict))
 
     return FeedResponse(
         user_id=user_id,

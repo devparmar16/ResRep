@@ -9,6 +9,7 @@ import '../../models/saved_paper.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/loading_shimmer.dart';
 import '../paper_detail_screen.dart';
 
 /// Shows all papers saved in a specific collection.
@@ -111,8 +112,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       builder: (context, bookmark, _) {
         if (bookmark.isLoading) {
           return const SliverFillRemaining(
-            child: Center(
-              child: CircularProgressIndicator(color: AppTheme.accentTeal),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: LoadingShimmer(itemCount: 4),
             ),
           );
         }

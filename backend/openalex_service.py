@@ -222,6 +222,16 @@ def _normalise_work(work: dict, primary_domain: str | list[str] = "other") -> di
         summary = ". ".join(sentences[:2]) + ("." if len(sentences) > 0 and not sentences[0].endswith(".") else "")
 
     # Minimal flat schema for caching
+    from datetime import date
+    current_year = date.today().year
+    pub_year = work.get("publication_year")
+    if isinstance(pub_year, int) and pub_year > current_year:
+        pub_year = current_year
+
+    pub_date = work.get("publication_date")
+    if pub_date and isinstance(pub_date, str) and pub_date[:4].isdigit() and int(pub_date[:4]) > current_year:
+        pub_date = str(current_year) + pub_date[4:]
+
     return {
         "paper_id": work.get("id", "").replace("https://openalex.org/", ""),
         "title": title,
@@ -234,8 +244,8 @@ def _normalise_work(work: dict, primary_domain: str | list[str] = "other") -> di
         "landing_page_url": landing_page_url,
         "pdf_url": pdf_url,
         "is_open_access": is_open_access,
-        "publication_date": work.get("publication_date"),
-        "year": work.get("publication_year"),
+        "publication_date": pub_date,
+        "year": pub_year,
         "citation_count": work.get("cited_by_count", 0),
         "openalex_score": work.get("relevance_score", 0.0),
         "domain": assigned_domain,

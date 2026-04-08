@@ -23,12 +23,14 @@ class FeedProvider extends ChangeNotifier {
   String? _error;
   String? _nextCursor;
   bool _hasMore = true;
+  bool _hasAttemptedLoad = false;
 
   // ─── Getters ──────────────────────────────────────────
   bool get isLoadingInitial => _isLoadingInitial;
   bool get isLoadingMore => _isLoadingMore;
   String? get error => _error;
   bool get hasContent => _papers.isNotEmpty;
+  bool get hasAttemptedLoad => _hasAttemptedLoad;
   bool get hasMore => _hasMore;
   Set<String> get activeFilterDomainIds => _activeFilterDomainIds.toSet();
 
@@ -85,6 +87,7 @@ class FeedProvider extends ChangeNotifier {
     _nextCursor = '*';
     _hasMore = true;
     _error = null;
+    _hasAttemptedLoad = false;
     _isLoadingInitial = true;
     notifyListeners();
     
@@ -96,10 +99,10 @@ class FeedProvider extends ChangeNotifier {
     if (_papers.isNotEmpty) return; // already loaded
 
     _domainIds = domainIds;
-    print('FeedProvider: initializing with ${domainIds.length} domains for user $userId');
+    debugPrint('FeedProvider: initializing with ${domainIds.length} domains for user $userId');
     _userId = userId ?? 'default-user';
     if (_domainIds.isEmpty) {
-      print('FeedProvider: SKIPPING initialization because domainIds is empty');
+      debugPrint('FeedProvider: SKIPPING initialization because domainIds is empty');
       return;
     }
 
@@ -107,8 +110,14 @@ class FeedProvider extends ChangeNotifier {
   }
 
   /// Load more papers when reaching the end of the list.
+  DateTime? _lastLoadMoreCall;
   Future<void> loadMore() async {
     if (_isLoadingInitial || _isLoadingMore || !_hasMore || _nextCursor == null) return;
+    
+    // Debounce: ignore rapid-fire calls within 500ms
+    final now = DateTime.now();
+    if (_lastLoadMoreCall != null && now.difference(_lastLoadMoreCall!).inMilliseconds < 500) return;
+    _lastLoadMoreCall = now;
     
     _isLoadingMore = true;
     notifyListeners();
@@ -130,6 +139,7 @@ class FeedProvider extends ChangeNotifier {
     _activeFilterDomainIds.clear();
     _nextCursor = '*';
     _hasMore = true;
+    _hasAttemptedLoad = false;
     _error = null;
     notifyListeners();
   }
@@ -152,13 +162,14 @@ class FeedProvider extends ChangeNotifier {
       _nextCursor = result.nextCursor;
       _hasMore = _nextCursor != null && _nextCursor!.isNotEmpty;
       
-      print('FeedProvider: Fetched ${result.papers.length} papers. New nextCursor: $_nextCursor. hasMore: $_hasMore');
+      debugPrint('FeedProvider: Fetched ${result.papers.length} papers. New nextCursor: $_nextCursor. hasMore: $_hasMore');
     } catch (e) {
       _error = e.toString();
-      print('FeedProvider API Error: $e');
+      debugPrint('FeedProvider API Error: $e');
     } finally {
       if (_isLoadingInitial) _isLoadingInitial = false;
       if (_isLoadingMore) _isLoadingMore = false;
+      _hasAttemptedLoad = true;
       notifyListeners();
     }
   }

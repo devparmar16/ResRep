@@ -148,3 +148,28 @@ async def set_resolve_cache(key: str, value: str, ttl: int) -> None:
     """Cache a resolution result (paper_id or '__MISS__')."""
     r = await get_redis()
     await r.setex(f"resolve_cache:{key}", ttl, value)
+
+
+async def store_papers_batch(papers: list[tuple[str, dict]], ttl: int) -> None:
+    """Store multiple papers in a single Redis pipeline (1 round-trip instead of N)."""
+    if not papers:
+        return
+    r = await get_redis()
+    pipe = r.pipeline(transaction=False)
+    for paper_id, data in papers:
+        key = f"paper:{paper_id}"
+        pipe.setex(key, ttl, json.dumps(data))
+    await pipe.execute()
+    logger.debug(f"Batch stored {len(papers)} papers via pipeline")
+
+
+async def log_memory_usage() -> None:
+    """Log Redis memory usage for monitoring."""
+    r = await get_redis()
+    try:
+        info = await r.info("memory")
+        used = info.get("used_memory_human", "unknown")
+        peak = info.get("used_memory_peak_human", "unknown")
+        logger.info(f"Redis memory: used={used}, peak={peak}")
+    except Exception:
+        pass  # Ignore in constrained environments

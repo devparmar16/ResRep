@@ -7,6 +7,7 @@ import '../../models/collection.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/loading_shimmer.dart';
 import 'collection_detail_screen.dart';
 
 /// Screen showing all user collections with paper counts.
@@ -72,8 +73,9 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
       builder: (context, bookmark, _) {
         if (bookmark.isLoading && bookmark.collections.isEmpty) {
           return const SliverFillRemaining(
-            child: Center(
-              child: CircularProgressIndicator(color: AppTheme.accentTeal),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: LoadingShimmer(itemCount: 4),
             ),
           );
         }

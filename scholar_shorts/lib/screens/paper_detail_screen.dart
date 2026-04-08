@@ -893,6 +893,16 @@ class _PaperDetailScreenState extends State<PaperDetailScreen> {
           ),
         ),
       );
+    } else if (pdfUrl == null && !_isCheckingArxiv) {
+      // No PDF available — offer a web search fallback
+      final encodedTitle = Uri.encodeComponent(widget.paper.title);
+      buttons.add(
+        _actionButton(
+          label: '🔍 Find on Web',
+          gradient: false,
+          onTap: () => _launchUrl('https://scholar.google.com/scholar?q=$encodedTitle'),
+        ),
+      );
     }
 
     if (widget.paper.doi != null && widget.paper.landingPageUrl != null) {

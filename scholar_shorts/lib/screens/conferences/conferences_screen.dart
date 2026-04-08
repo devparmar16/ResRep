@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/conference_provider.dart';
+import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/conference_card.dart';
+import '../../widgets/loading_shimmer.dart';
 
 class ConferencesScreen extends StatefulWidget {
   const ConferencesScreen({super.key});
@@ -15,6 +18,7 @@ class ConferencesScreen extends StatefulWidget {
 class _ConferencesScreenState extends State<ConferencesScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _citySearchController = TextEditingController();
+  bool _isGettingLocation = false;
 
   @override
   void initState() {
@@ -22,8 +26,22 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ConferenceProvider>();
+      final auth = context.read<AuthProvider>();
+      
       if (!provider.hasContent && !provider.isLoading) {
-        provider.loadConferences();
+        if (provider.domainFilter == null && auth.profile != null && auth.profile!.selectedDomains.isNotEmpty) {
+          final domainId = auth.profile!.selectedDomains.first;
+          String mappedDomain = 'Computer Science';
+          if (domainId == 'ds-ai') mappedDomain = 'AI';
+          else if (domainId == 'medicine') mappedDomain = 'Medicine';
+          else if (domainId == 'physics') mappedDomain = 'Physics';
+          else if (domainId == 'engineering') mappedDomain = 'Engineering';
+          else if (domainId == 'biology') mappedDomain = 'Biology';
+          
+          provider.setDomainFilter(mappedDomain); // triggers loadConferences() implicitly
+        } else {
+          provider.loadConferences();
+        }
       }
     });
   }
@@ -73,8 +91,9 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
             child: Consumer<ConferenceProvider>(
               builder: (context, provider, _) {
                 if (provider.isLoading && provider.conferences.isEmpty) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppTheme.accentTeal),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: LoadingShimmer(itemCount: 4),
                   );
                 }
 
@@ -202,7 +221,10 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
                       }
 
                       return ConferenceCard(
-                          conference: provider.conferences[index]);
+                          conference: provider.conferences[index],
+                          userLat: provider.nearbyActive ? provider.userLat : null,
+                          userLon: provider.nearbyActive ? provider.userLon : null,
+                      );
                     },
                   ),
                 );
@@ -224,6 +246,10 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                // Nearby filter
+                _buildNearbyChip(context, provider),
+                const SizedBox(width: 8),
+
                 // Mode filter
                 _buildDropdownChip(
                   label: provider.modeFilter ?? 'Mode',
@@ -353,14 +379,56 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
 
   Widget _buildCityChip(BuildContext context, ConferenceProvider provider) {
     final isSelected = provider.cityFilter != null;
-    return GestureDetector(
-      onTap: () => _showCityDialog(context, provider),
+    return PopupMenuButton<String>(
+      onSelected: (val) {
+        if (val == 'Clear') {
+          provider.setCityFilter(null);
+        } else {
+          provider.setCityFilter(val);
+        }
+      },
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: AppTheme.surface,
+      itemBuilder: (context) {
+        final citiesDict = {
+          'US': ['New York', 'San Francisco', 'Boston', 'Seattle', 'Chicago'],
+          'UK': ['London', 'Cambridge', 'Oxford', 'Manchester', 'Edinburgh'],
+          'IN': ['Bangalore', 'Mumbai', 'New Delhi', 'Hyderabad', 'Chennai'],
+          'CA': ['Toronto', 'Vancouver', 'Montreal', 'Waterloo'],
+          'AU': ['Sydney', 'Melbourne', 'Brisbane', 'Perth'],
+          'DE': ['Berlin', 'Munich', 'Frankfurt', 'Hamburg'],
+          'FR': ['Paris', 'Lyon', 'Marseille'],
+          'JP': ['Tokyo', 'Kyoto', 'Osaka', 'Yokohama'],
+          'CN': ['Beijing', 'Shanghai', 'Shenzhen', 'Hangzhou'],
+        };
+
+        List<String> options = [];
+        if (provider.countryFilter != null && provider.countryFilter != 'ALL') {
+          options = citiesDict[provider.countryFilter!] ?? [];
+        } else {
+          // If no country selected, offer major global tech hubs
+          options = ['San Francisco', 'London', 'Tokyo', 'Bangalore', 'Berlin', 'Paris'];
+        }
+
+        final menuItems = options.map((opt) {
+          return PopupMenuItem<String>(
+            value: opt,
+            child: Text(opt, style: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 14)),
+          );
+        }).toList();
+
+        if (isSelected) {
+          menuItems.add(PopupMenuItem<String>(
+            value: 'Clear',
+            child: Text('Clear', style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 14)),
+          ));
+        }
+        return menuItems;
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.orangeAccent.withAlpha(40)
-              : AppTheme.surfaceVariant,
+          color: isSelected ? Colors.orangeAccent.withAlpha(40) : AppTheme.surfaceVariant,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? Colors.orangeAccent : AppTheme.glassBorder,
@@ -370,9 +438,7 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.location_city,
-                size: 14,
-                color: isSelected ? Colors.orangeAccent : AppTheme.textDim),
+            Icon(Icons.location_city, size: 14, color: isSelected ? Colors.orangeAccent : AppTheme.textDim),
             const SizedBox(width: 6),
             Text(
               provider.cityFilter ?? 'City',
@@ -382,74 +448,93 @@ class _ConferencesScreenState extends State<ConferencesScreen> {
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => provider.setCityFilter(null),
-                child: const Icon(Icons.close,
-                    size: 14, color: Colors.orangeAccent),
-              ),
-            ],
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down, size: 16, color: isSelected ? Colors.orangeAccent : AppTheme.textDim),
           ],
         ),
       ),
     );
   }
 
-  void _showCityDialog(BuildContext context, ConferenceProvider provider) {
-    _citySearchController.text = provider.cityFilter ?? '';
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: AppTheme.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Filter by City',
+  // ── Nearby Location Chip ─────────────────────────────
+  Widget _buildNearbyChip(BuildContext context, ConferenceProvider provider) {
+    final isActive = provider.nearbyActive;
+    return GestureDetector(
+      onTap: () async {
+        if (isActive) {
+          provider.disableNearby();
+          return;
+        }
+        // Request location
+        final messenger = ScaffoldMessenger.of(context);
+        setState(() => _isGettingLocation = true);
+        final position = await LocationService.getCurrentPosition();
+        if (!mounted) return;
+        setState(() => _isGettingLocation = false);
+
+        if (position != null) {
+          provider.enableNearby(position.latitude, position.longitude);
+        } else {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(LocationService.lastError ?? 'Could not get location'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppTheme.accentTeal.withAlpha(40)
+              : AppTheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? AppTheme.accentTeal : AppTheme.glassBorder,
+            width: isActive ? 1.0 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isGettingLocation)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: AppTheme.accentTeal,
+                ),
+              )
+            else
+              Icon(
+                Icons.near_me,
+                size: 14,
+                color: isActive ? AppTheme.accentTeal : AppTheme.textDim,
+              ),
+            const SizedBox(width: 6),
+            Text(
+              'Nearby',
               style: GoogleFonts.inter(
-                  color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
-          content: TextField(
-            controller: _citySearchController,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'e.g. London, New York, Tokyo...',
-              hintStyle: const TextStyle(color: AppTheme.textDim),
-              prefixIcon:
-                  const Icon(Icons.search, color: AppTheme.textDim, size: 20),
-              filled: true,
-              fillColor: AppTheme.surfaceVariant,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppTheme.glassBorder),
+                color: isActive ? Colors.white : AppTheme.textDim,
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
-            onSubmitted: (val) {
-              final trimmed = val.trim();
-              provider.setCityFilter(trimmed.isEmpty ? null : trimmed);
-              Navigator.pop(ctx);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                provider.setCityFilter(null);
-                Navigator.pop(ctx);
-              },
-              child: const Text('Clear',
-                  style: TextStyle(color: Colors.redAccent)),
-            ),
-            TextButton(
-              onPressed: () {
-                final trimmed = _citySearchController.text.trim();
-                provider.setCityFilter(trimmed.isEmpty ? null : trimmed);
-                Navigator.pop(ctx);
-              },
-              child:
-                  const Text('Apply', style: TextStyle(color: AppTheme.accentTeal)),
-            ),
+            if (isActive) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => provider.disableNearby(),
+                child: const Icon(Icons.close,
+                    size: 14, color: AppTheme.accentTeal),
+              ),
+            ],
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

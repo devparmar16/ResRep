@@ -10,6 +10,8 @@ import 'onboarding/domain_selection_screen.dart';
 import '../widgets/glass_card.dart';
 import '../providers/bookmark_provider.dart';
 import 'collections/collection_detail_screen.dart';
+import 'collections/collections_screen.dart';
+import '../widgets/loading_shimmer.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -184,7 +186,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // Optionally navigate to collections tab or do nothing since it's an inline preview
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectionsScreen()));
                         },
                         child: const Text('View All', style: TextStyle(color: AppTheme.accentTeal)),
                       ),
@@ -195,7 +197,7 @@ class ProfileScreen extends StatelessWidget {
                 Consumer<BookmarkProvider>(
                   builder: (context, bm, _) {
                     if (bm.isLoading && bm.collections.isEmpty) {
-                      return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: AppTheme.accentTeal)));
+                      return const Padding(padding: EdgeInsets.only(top: 24), child: LoadingShimmer(itemCount: 2));
                     }
                     if (bm.collections.isEmpty) {
                       return GlassCard(
